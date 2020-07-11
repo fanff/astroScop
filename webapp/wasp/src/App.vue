@@ -27,7 +27,7 @@ export default {
   data () {
     return {
         wsconnected:false,
-        wsip:"localhost",
+        wsip:"192.168.1.22",
         ips:["localhost","192.168.1.22"],
         imgData:"",
         imgProps:{},

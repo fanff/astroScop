@@ -9,7 +9,7 @@
        dispresol<v-select v-model="dispresol" :options="resols" label="name"></v-select>
     </p> 
     <p> 
-      <VueSlideBar v-model="value1" :min=0 :max=100 :lineHeight="20"/>
+      <VueSlideBar v-model="value1" :min=0 :max=25 :lineHeight="20"/>
       <VueSlideBar v-model="value2" :min=0 :max=1000 :lineHeight="20"/>
     </p> 
     <p> 
@@ -17,8 +17,8 @@
     </p> 
       
     <p> 
-      <VueSlideBar v-model="redgain" :min=0 :max=300 :lineHeight="20"/>RED
-      <VueSlideBar v-model="bluegain" :min=0 :max=300 :lineHeight="20"/>BLUE
+      <VueSlideBar v-model="redgain" :min=0 :max=8 :lineHeight="20"/>RED
+      <VueSlideBar v-model="bluegain" :min=0 :max=8 :lineHeight="20"/>BLUE
     </p> 
 
   </div>
@@ -43,14 +43,18 @@ export default {
   },
   data () {
     return {
-      value1: 70,
+      value1: 1,
       value2: 500,
       isovalue:100,
       tests: ["a","b","c"],
       isovalues: [0,100,200,300,400,500,600,700,800],
-      redgain:150,
-      bluegain:150,
-      resols:[ {name:"tiny", width:480,height:360}, {name:"720", width:1024,height:720}, ],
+      redgain:1,
+      bluegain:1,
+      resols:[ {name:"100x60", width:100,height:60},
+          {name:"640x480", width:640,height:480}, 
+          {name:"1024x720", width:1024,height:720}, 
+      
+      ],
       shootresol:{name:"tiny", width:480,height:360},
       dispresol: {name:"tiny", width:480,height:360},
     }

@@ -1,6 +1,6 @@
 <template>
   <div class="hello">
-    <img alt="camimg" v-bind:src="imgsrc()" width=500>
+    <img class="viewwin" alt="camimg" v-bind:src="imgsrc()" width=500>
   
     <trend :data="bvals" :gradient="['#00F']" auto-draw></trend>
     <trend :data="gvals" :gradient="['#0F0']" auto-draw></trend>
@@ -58,6 +58,10 @@ export default {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
+img {
+    border-style:solid;
+    border-color:#a7021c;
+}
 h3 {
   margin: 40px 0 0;
 }
