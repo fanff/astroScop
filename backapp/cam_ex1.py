@@ -6,6 +6,7 @@ import imgutils
 import logging
 from io import BytesIO
 from PIL import Image
+import json
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -15,22 +16,17 @@ log = logging.getLogger(__name__)
 
 from websocket import create_connection
 
-
-from websocket import create_connection
-
-
-quit()
 log.info("openingcamera")
-with PiCamera(resolution=(640, 480), framerate_range=(0.166666,30)) as camera:
+with PiCamera(resolution=(1024, 768), framerate_range=(0.1,30)) as camera:
     log.info("got camera")
     # Set ISO to the desired value
-    camera.iso = 100
+    camera.iso = 0
     log.info("analog_gain %s",camera.analog_gain)
     
     #camera.analog_gain=1.0 
     camera.exposure_mode = "fixedfps"
     
-    camera.shutter_speed =3000000
+    camera.shutter_speed =2500000
     log.info("exposure speed %s" , camera.exposure_speed)
     
     g=(1.0,1.0)
@@ -42,7 +38,7 @@ with PiCamera(resolution=(640, 480), framerate_range=(0.166666,30)) as camera:
     
     for i in range(6):
         log.info("capture start ")
-        strt = time.time()
+        triggerDate = time.time()
         stream = BytesIO()
 
         camera.capture(stream,format="jpeg")
@@ -51,12 +47,30 @@ with PiCamera(resolution=(640, 480), framerate_range=(0.166666,30)) as camera:
         image = Image.open(stream)
 
         end = time.time()
-        log.info("capture end ")
+        dur = end-triggerDate
+        log.info("capture ended in  %.2fsec",dur)
         
-        ws = create_connection("ws://localhost:8765/")
-        ws.send({"imageData":"l"})
+        strtTime = time.time()
+        try:
+            ws = create_connection("ws://localhost:8765/")
+            data = imgutils.pilimTobase64Jpg(image)
+            ws.send(json.dumps({
+                "usedParams":{
+                    "triggerDate": triggerDate,
+                    "gains" :g,
+                    "analog_gain":float(camera.analog_gain), 
+                    "iso" :camera.iso,
+                    "shutterSpeeed":camera.shutter_speed,
+                    "exposure_speed":camera.exposure_speed,
+                    "exposure_mode":camera.exposure_mode,
+                    },
+                "msgtype":"srcimage",
+                "imageData":data}))
 
-        dur = end-strt
-        log.info("capture dur %.2fsec",dur)
+            ws.close()
+        except Exception as e:
+            log.exception("err %s",e)
 
 
+        dur = time.time()-strtTime
+        log.info("sending ended in  %.2fsec",dur)

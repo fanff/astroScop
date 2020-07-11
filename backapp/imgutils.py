@@ -2,8 +2,15 @@ import cv2
 
 import numpy as np
 from PIL import Image
+import io
+import base64
 
-
+def pilimTobase64Jpg(pilim):
+    # convert Pil to JPG data
+    b = io.BytesIO()
+    pilim.save(b, format="JPEG")
+    data = b.getvalue()
+    return base64.b64encode(data).decode("utf-8")
 
 def colorHist(pilim):
 
