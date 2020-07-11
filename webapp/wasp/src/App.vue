@@ -7,7 +7,10 @@
         v-bind:imgData="imgData"></imgDisplay >
         <captureOptions v-on:newParams="newParams" ></captureOptions >
       </div>
-      <div v-else>😢 </div>
+      <div v-else>
+      
+      </div>
+       <v-select v-model="wsip" :options="ips" ></v-select>
   </div>
 </template>
 
@@ -24,6 +27,8 @@ export default {
   data () {
     return {
         wsconnected:false,
+        wsip:"localhost",
+        ips:["localhost","192.168.1.22"],
         imgData:"",
         imgProps:{},
         imgStats:{},
@@ -49,6 +54,7 @@ export default {
         this.wsconnected = true; 
       },
       onclose:function(){
+        console.log("onClose")
         this.wsconnected = false; 
       },
       newParams:function(params){
@@ -60,12 +66,25 @@ export default {
             this.connection.send(JSON.stringify(msg));
           }
       },
+      makeConnection:function(){
+        this.connection = new WebSocket("ws://"+this.wsip+":8765");
+        this.connection.onmessage = this.onmessage;
+        this.connection.onopen = this.onopen;
+        this.connection.onclose = this.onclose;
+
+      }
+  },
+  watch: {
+      wsip:function(){
+          console.log("resetConnection")
+        this.wsconnected=false;
+        this.connection.close();
+        //this.makeConnection();
+        setTimeout(this.makeConnection,1000);
+      }
   },
   mounted: function(){
-    this.connection = new WebSocket("ws://localhost:8765");
-    this.connection.onmessage = this.onmessage;
-    this.connection.onopen = this.onopen;
-    this.connection.onclose = this.onclose;
+      this.makeConnection();
   },
   beforeDestroy(){
   }
