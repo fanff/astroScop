@@ -1,10 +1,47 @@
 <template>
   <div class="hello">
-    <h1>{{ msg }}</h1>
+    <h1>{{durationValue() }} {{ msg }}</h1>
+    <p>
+    {{mqttConnected}}
+    </p>
     <p>
       For a guide and recipes on how to configure / customize this project,<br>
-      check out the
-      <a href="https://cli.vuejs.org" target="_blank" rel="noopener">vue-cli documentation</a>.
+        
+      <VueSlideBar v-model="value1"
+    :min=0
+        :max=1000000
+    :lineHeight="20"
+      />
+      <VueSlideBar v-model="value2"
+    :min=0
+        :max=200000
+    :lineHeight="20"
+      />
+      <VueSlideBar v-model="value3"
+    :min=0
+        :max=50000
+    :lineHeight="20"
+      />
+      <VueSlideBar v-model="value4"
+    :min=0
+        :max=10000
+    :lineHeight="20"
+      />
+      <VueSlideBar v-model="value5"
+    :min=0
+        :max=3000
+    :lineHeight="20"
+      />
+      <VueSlideBar v-model="value6"
+    :min=0
+        :max=700
+    :lineHeight="20"
+      />
+      <VueSlideBar v-model="value7"
+    :min=0
+        :max=100
+    :lineHeight="20"
+      />
     </p>
     <h3>Installed CLI Plugins</h3>
     <ul>
@@ -31,11 +68,51 @@
 </template>
 
 <script>
+import VueSlideBar from 'vue-slide-bar'
+
+import mqtt from 'mqtt'
+
 export default {
+  components: {
+    VueSlideBar
+  },
+
   name: 'HelloWorld',
   props: {
     msg: String
+  },
+  data () {
+    return {
+      value1: 500000,
+      value2: 0,
+      value3: 0,
+      value4: 0,
+      value5: 0,
+      value6: 0,
+      value7: 0,
+      mqttConnected: false,
+    }
+  },
+  methods: {
+    durationValue () {
+      return this.value1+this.value2+this.value3+this.value4+this.value5+this.value6+this.value7
+    },
+    onConnected(){
+        this.mqttConnected = true;
+        console.log("connected")
+    }
+  },
+  mounted(){
+    this.client = mqtt.connect("mqtt://192.168.168.3:9001");
+
+    this.client.on("connect",this.onConnected );
+
+    console.log("created mqtt client")
+  },
+  beforeDestroy(){
+    this.client.end()
   }
+  
 }
 </script>
 

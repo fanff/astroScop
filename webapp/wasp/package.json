@@ -9,7 +9,9 @@
   },
   "dependencies": {
     "core-js": "^3.6.4",
-    "vue": "^2.6.11"
+    "mqtt": "^3.0.0",
+    "vue": "^2.6.11",
+    "vue-slide-bar": "^1.2.0"
   },
   "devDependencies": {
     "@vue/cli-plugin-babel": "~4.2.0",
