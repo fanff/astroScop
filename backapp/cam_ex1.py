@@ -15,6 +15,7 @@ log = logging.getLogger(__name__)
 
 
 from websocket import create_connection
+ws = create_connection("ws://localhost:8765/")
 
 log.info("openingcamera")
 with PiCamera(resolution=(1024, 768), framerate_range=(0.1,30)) as camera:
@@ -26,7 +27,7 @@ with PiCamera(resolution=(1024, 768), framerate_range=(0.1,30)) as camera:
     #camera.analog_gain=1.0 
     camera.exposure_mode = "fixedfps"
     
-    camera.shutter_speed =2500000
+    camera.shutter_speed =100000
     log.info("exposure speed %s" , camera.exposure_speed)
     
     g=(1.0,1.0)
@@ -52,7 +53,6 @@ with PiCamera(resolution=(1024, 768), framerate_range=(0.1,30)) as camera:
         
         strtTime = time.time()
         try:
-            ws = create_connection("ws://localhost:8765/")
             data = imgutils.pilimTobase64Jpg(image)
             ws.send(json.dumps({
                 "usedParams":{

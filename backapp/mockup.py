@@ -39,6 +39,8 @@ def makeRandomImage(width,height):
 
     return data,histData
 
+WSCAMERA = None
+
 USERS= set()
 async def register(websocket):
     USERS.add(websocket)
@@ -78,9 +80,17 @@ async def hello(websocket, path):
     global currentParams
     global currentImage
     global currentUsedParams
+    global WSCAMERA
     log = logging.getLogger("handler")
-    log.info("client Connected")
-    await register(websocket)
+    log.info("client Connected on path %s",path)
+    
+    if "camera" in path:
+        WSCAMERA=websocket
+
+    else:
+        # register as user
+        await register(websocket)
+    
     try:
         while True:
             name = await websocket.recv()
@@ -88,7 +98,11 @@ async def hello(websocket, path):
                 msg = json.loads(name)
                 if msg["msgtype"] == "params":
                     currentParams = msg["data"]
-                    log.info("setting new params")
+                    if WSCAMERA:
+                        WSCAMERA.send(json.dumps(currentParams))
+                        log.info("setting new params")
+                    else:
+                        log.info("setting new params, no camera detected")
                 elif msg["msgtype"] == "srcimage":
                     log.info("got new image")
                     decoded = base64.b64decode(msg["imageData"].encode("utf-8"))
@@ -106,7 +120,10 @@ async def hello(websocket, path):
         log.error("error type %s",type(e))
         log.exception("error")
     finally:
-        await unregister(websocket)
+        if "camera" in path:
+            WSCAMERA=None
+        else:
+            await unregister(websocket)
 
 
 async def bgjob():
