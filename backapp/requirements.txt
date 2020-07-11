@@ -1,2 +1,6 @@
 websockets
 websocket-client
+
+# numpy APT it
+cv2-utils
+Pillow-PIL
