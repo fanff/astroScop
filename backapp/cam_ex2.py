@@ -29,11 +29,13 @@ def cleanParams(params):
         "shootresol":{ "width":480,"height":368},
         "dispresol":{ "width":480,"height":368},
         "capture_format":"rgb",
-        "exposure_compensation":"0",
+        "exposure_compensation":0,
 
         "brightness":50,
-        "saturation":"0",
+        "saturation":0,
+        "contrast":0,
         "save_format":"none",
+        "save_section":"test",
         "save_subsection":"",
         }
     else:
@@ -75,6 +77,7 @@ async def cameraLoop():
                     camera.iso = params["isovalue"]
                     #log.info("analog_gain %s",camera.analog_gain)
                     camera.brightness = params["brightness"] 
+                    camera.contrast = params["contrast"] 
                     #camera.analog_gain=1.0 
                     camera.exposure_mode = params["expomode"]
                     camera.exposure_compensation = params["exposure_compensation"]
@@ -164,6 +167,7 @@ async def cameraLoop():
                                 "iso" :camera.iso,
                                 "brightness":camera.brightness,
                                 "saturation":camera.saturation,
+                                "contrast":camera.contrast,
                                 "exposure_compensation":camera.exposure_compensation,
                                 "resolution":list(strtResolution),
                                 "imageSize":image.size,
