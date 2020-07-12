@@ -12,33 +12,55 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
 ['night', "off" ,"verylong","fixedfps"]
+#camera.exposure_mode
 
+freshParams = None
+
+def cleanParams(params):
+    if params == None :
+        return {
+        "shutterSpeed": 150000,
+        "isovalue": 100,
+        "redgain": 1.0 ,
+        "bluegain": 1.0,
+        }
+    else:
+        params["shutterSpeed"]
+        params["isovalue"]
+        params["redgain"]
+        params["bluegain"]
+        params["expomode"]
+
+        return params
 
 from websocket import create_connection
-ws = create_connection("ws://localhost:8765/")
+ws = create_connection("ws://localhost:8765/camera")
 
 log.info("openingcamera")
 with PiCamera(resolution=(1024, 768), framerate_range=(0.1,30)) as camera:
     log.info("got camera")
     # Set ISO to the desired value
-    camera.iso = 0
-    log.info("analog_gain %s",camera.analog_gain)
-    
-    #camera.analog_gain=1.0 
-    camera.exposure_mode = "fixedfps"
-    
-    camera.shutter_speed =100000
-    log.info("exposure speed %s" , camera.exposure_speed)
-    
-    g=(1.0,1.0)
-    log.info("setting  awg_gains %s",g)
+    continueLoop=True
+    while continueLoop:
 
-    camera.awb_mode = 'off'
-    camera.awb_gains = g
-    # Finally, take several photos with the fixed settings
+        params = cleanParams(freshParams)
+
+        camera.iso = params["isovalue"]
+        log.info("analog_gain %s",camera.analog_gain)
+        
+        #camera.analog_gain=1.0 
+        camera.exposure_mode = "fixedfps"
+        
+        camera.shutter_speed =params["shutterSpeed"]
+        log.info("exposure speed %s" , camera.exposure_speed)
+        
+        g=(params["redgain"],params["bluegain"])
+
+        camera.awb_mode = 'off'
+        camera.awb_gains = g
+        # Finally, take several photos with the fixed settings
     
-    for i in range(6):
-        log.info("capture start ")
+        log.info("capture start %s"%params)
         triggerDate = time.time()
         stream = BytesIO()
 
@@ -63,14 +85,21 @@ with PiCamera(resolution=(1024, 768), framerate_range=(0.1,30)) as camera:
                     "shutterSpeeed":camera.shutter_speed,
                     "exposure_speed":camera.exposure_speed,
                     "exposure_mode":camera.exposure_mode,
+                    "capture_dur":dur,
                     },
                 "msgtype":"srcimage",
                 "imageData":data}))
 
-            ws.close()
+            freshParams =  json.loads(ws.recv())
+
+
         except Exception as e:
             log.exception("err %s",e)
 
 
         dur = time.time()-strtTime
         log.info("sending ended in  %.2fsec",dur)
+
+ws.close()
+
+
