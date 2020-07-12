@@ -1,5 +1,6 @@
 <template>
   <div id="app">
+
      <div class="parent">
          <div class="div1">
              <div>
@@ -12,6 +13,7 @@
                 </select> 
                 <button v-on:click="onshowsettings()">Settings</button> 
                 <button v-on:click="onshowstats()">Stats</button> 
+                {{diskUsage}}
              </div>
                 
          </div>
@@ -57,6 +59,7 @@ export default {
         imgStats:{},
         showSettings:true,
         showStats:true,
+        diskUsage:"?",
     }
   },
   methods: {
@@ -71,6 +74,9 @@ export default {
           }
           else if(msgtype=="imgStats"){
             this.imgStats = data.data
+          }
+          else if(msgtype=="sysInfo"){
+            this.diskUsage = ((data.data.used/data.data.total)*100).toFixed(1);
           }else{
             console.log(data);
           }

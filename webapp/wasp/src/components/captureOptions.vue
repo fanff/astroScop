@@ -5,6 +5,7 @@
       <VueSlideBar v-model="redgain" :min=0 :max=800 :lineHeight="20"/>RED
 
       <VueSlideBar v-model="brightness" :min=0 :max=100 :lineHeight="20"/>Brightness
+      <VueSlideBar v-model="contrast" :min=-100 :max=100 :lineHeight="20"/>Contrast
       <VueSlideBar v-model="saturation" :min=-100 :max=100 :lineHeight="20"/>Saturation
       <VueSlideBar v-model="exposure_compensation" :min=-25 :max=25 :lineHeight="20"/>Exposure
 
@@ -21,6 +22,7 @@
       dispresol<v-select v-model="dispresol" :options="resols" label="name"></v-select>
       saveFormat<v-select v-model="save_format" :options="save_formats" ></v-select>
       saveSection<v-select v-model="save_section" :options="save_sections" ></v-select>
+      subsection<input v-model="save_subsection" >
         <p>
       <button v-on:click="pushParams()">pushparams</button>
         </p>
@@ -51,6 +53,7 @@ export default {
       value2: 500,
       brightness:50,
       saturation:0,
+      contrast:0,
       isovalue:0,
       isovalues: [0,100,200,300,400,500,600,700,800],
       capture_format : "rgb",
@@ -81,7 +84,8 @@ export default {
       
       save_section:"work",
       save_sections:["work","test","deep","planet","dark","flats"],
-
+      
+      save_subsection:"",
     }
   },
   watch:{
@@ -89,6 +93,7 @@ export default {
     bluegain:function(){this.pushParams()},
     brightness:function(){this.pushParams()},
     saturation:function(){this.pushParams()},
+    contrast:function(){this.pushParams()},
     exposure_compensation:function(){this.pushParams()},
 
     isovalue:function(){this.pushParams()},
@@ -101,6 +106,7 @@ export default {
     dispresol:function(){this.pushParams()},
     save_format:function(){this.pushParams()},
     save_section:function(){this.pushParams()},
+    save_subsection:function(){this.pushParams()},
   },
   methods: {
     ss () { return 100*this.value2 + 100000*this.value1;},
@@ -113,11 +119,13 @@ export default {
         capture_format:this.capture_format,
         brightness:this.brightness,
         saturation:this.saturation,
+        contrast:this.contrast,
         exposure_compensation:this.exposure_compensation,
         shootresol:this.ensureResol(this.shootresol),
         dispresol:this.ensureResol(this.dispresol),
         save_format:this.save_format,
         save_section:this.save_section,
+        save_subsection:this.save_subsection,
       }
     },
     ensureResol(val){

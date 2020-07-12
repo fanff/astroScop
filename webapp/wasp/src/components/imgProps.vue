@@ -7,6 +7,9 @@
                  <li>gain: {{usedParams.gains}}</li>
                  <li>again:{{usedParams.analog_gain}}</li>
                  <li>bright:{{usedParams.brightness}}</li>
+                 <li>sat:{{usedParams.saturation}}</li>
+                 <li>exposure:{{usedParams.exposure_compensation}}</li>
+                 <li>contrast:{{usedParams.contrast}}</li>
                  <li>iso: {{usedParams.iso}}</li>
                  <li>shutter: {{usedParams.shutterSpeed}}</li>
                  <li>exposure: {{usedParams.exposure_speed}}</li>
