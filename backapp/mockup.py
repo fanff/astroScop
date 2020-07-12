@@ -39,6 +39,8 @@ def makeRandomImage(width,height):
 
     return data,histData
 
+WSCAMERA = None
+
 USERS= set()
 async def register(websocket):
     USERS.add(websocket)
@@ -72,15 +74,43 @@ async def sendImageStats(imgStats):
         message = json.dumps({"type":"imgStats","data":imgStats})
         await asyncio.wait([user.send(message) for user in USERS])
         endSend = time.time()
-        log.info("sendDur: %s",endSend-strSend)
+        log.debug("sendDur: %s",endSend-strSend)
+
+async def bcastImg(currentImage,usedParams):
+
+    b64imgData = imgutils.pilimTobase64Jpg(currentImage)
+    histData = imgutils.colorHist(currentImage)
+
+    await sendImage(b64imgData)
+    
+    imgProps = {"usedParams":usedParams,
+            "triggerDate":"no info",
+            }
+    await sendImageProps(imgProps)
+    
+
+    imgStats = {"histData":histData,}
+    await sendImageStats(imgStats)
+    await asyncio.sleep(.4)
+
 
 async def hello(websocket, path):
     global currentParams
     global currentImage
     global currentUsedParams
+    global WSCAMERA
     log = logging.getLogger("handler")
-    log.info("client Connected")
-    await register(websocket)
+    log.info("client Connected on path %s",path)
+    
+    if "camera" in path:
+        WSCAMERA=websocket
+        if currentParams:
+            await WSCAMERA.send(json.dumps(currentParams))
+
+    else:
+        # register as user
+        await register(websocket)
+    
     try:
         while True:
             name = await websocket.recv()
@@ -88,12 +118,18 @@ async def hello(websocket, path):
                 msg = json.loads(name)
                 if msg["msgtype"] == "params":
                     currentParams = msg["data"]
-                    log.info("setting new params")
+                    if WSCAMERA:
+                        await WSCAMERA.send(json.dumps(currentParams))
+                        log.info("setting new params")
+                    else:
+                        log.info("setting new params, no camera detected")
                 elif msg["msgtype"] == "srcimage":
-                    log.info("got new image")
+                    log.info("got image, send current Params")
+                    #await websocket.send(json.dumps(currentParams))
                     decoded = base64.b64decode(msg["imageData"].encode("utf-8"))
                     currentImage = Image.open(io.BytesIO(decoded))
                     currentUsedParams = msg["usedParams"]
+                    await bcastImg(currentImage,currentUsedParams)
 
             except Exception as e:
                 log.exception("bad message! %s",e)
@@ -106,7 +142,11 @@ async def hello(websocket, path):
         log.error("error type %s",type(e))
         log.exception("error")
     finally:
-        await unregister(websocket)
+        if "camera" in path:
+            log.warning("no camera around :(")
+            WSCAMERA=None
+        else:
+            await unregister(websocket)
 
 
 async def bgjob():
@@ -114,33 +154,8 @@ async def bgjob():
     global currentParams
     sleepdur = 1
     while True:
-        
-        
-        if currentParams == None:
-            log.info("no  params")
-            await asyncio.sleep(sleepdur)
-        elif currentImage!=None:
-            log.info("image!")
-            
-             
-            b64imgData = imgutils.pilimTobase64Jpg(currentImage)
-            
-            histData = imgutils.colorHist(currentImage)
 
-            log.info("img b64 data %s",len(b64imgData))
-            await sendImage(b64imgData)
-            
-            imgProps = {"usedParams":currentUsedParams,
-                    "triggerDate":"no info",
-                    }
-            await sendImageProps(imgProps)
-            
-
-            imgStats = {"histData":histData,}
-            await sendImageStats(imgStats)
-            await asyncio.sleep(sleepdur)
-
-        elif DEBUGMODE:
+        if DEBUGMODE:
             log.info("current parameters %s",currentParams)
 
             usedParams = copy.deepcopy(currentParams)
@@ -164,7 +179,7 @@ async def bgjob():
             imgStats = {"histData":histData,}
             await sendImageStats(imgStats)
         else:
-            log.info("got params, no image yet")
+            log.info("ping")
             await asyncio.sleep(sleepdur)
 
 logging.basicConfig(level=logging.INFO)
