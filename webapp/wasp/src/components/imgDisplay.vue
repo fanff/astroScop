@@ -1,7 +1,7 @@
 <template>
   <div class="hello">
-    <img class="viewwin" alt="camimg" v-bind:src="imgsrc()" width=500>
-  
+    <img class="viewwin" alt="camimg" v-bind:src="imgsrc()" width=100%>
+ 
     <trend :data="bvals" :gradient="['#00F']" auto-draw></trend>
     <trend :data="gvals" :gradient="['#0F0']" auto-draw></trend>
     <trend :data="rvals" :gradient="['#F00']" auto-draw></trend>
