@@ -95,7 +95,7 @@ async def cameraLoop():
 
                     triggerDate = time.time()
                     camera.capture(stream,format=capture_format)
-
+                
                     capture_dur = time.time()-triggerDate
                     
                     
@@ -124,15 +124,22 @@ async def cameraLoop():
                     
                     # save
                     strtTime = time.time()
-
+                    save_format = params["save_format"]
+                    save_section = params["save_section"]
                     fileName = "img_%.6f"%triggerDate
-                    if params["save_format"] == "none":
-                        pass
-                    elif params["save_format"] == "tiff":
-
+                    fileName=fileName.replace(".","_")
+                    if save_format == "none":
+                        
+                        fdest="none"
+                        fileNameExt="none"
+                    elif save_format == "tiff":
+                    
                         fileNameExt = "%s.tiff"%fileName
-                        prefix="./"
-                        fileDest = os.path.join(prefix,fileNameExt)
+                        prefix="./savedimgs/"
+                        fdest = os.path.join(prefix,save_section)
+
+                        os.makedirs(fdest,exist_ok=True)
+                        fileDest = os.path.join(fdest,fileNameExt)
                         image.save(fileDest)
                         log.info("saving to %s",fileDest)
 
@@ -150,7 +157,7 @@ async def cameraLoop():
                                 "brightness":camera.brightness,
                                 "resolution":list(strtResolution),
                                 "imageSize":image.size,
-                                "shutterSpeeed":camera.shutter_speed,
+                                "shutterSpeed":camera.shutter_speed,
                                 "exposure_speed":camera.exposure_speed,
                                 "exposure_mode":camera.exposure_mode,
                                 "awb_mode":camera.awb_mode,
@@ -158,7 +165,13 @@ async def cameraLoop():
                                 "pil_dur":pil_dur,
                                 "resize_dur":resize_dur,
                                 "save_dur":save_dur,
-                                "capture_format":capture_format
+                                "capture_format":capture_format,
+                                "save_format":save_format,
+                                "save_section":save_section,
+                                "fdest":fdest,
+                                "fileNameExt":fileNameExt,
+                                
+                                
                                 },
                             "msgtype":"srcimage",
                             "imageData":data})
