@@ -2,23 +2,33 @@
   <div id="app">
      <div class="parent">
          <div class="div1">
-            <v-select v-model="wsip" :options="ips" ></v-select>    
+             <div>
+                
+                 <label for="wsip"></label>
+                 <select name="wsip" id="cars" v-model="wsip">
+                        <option v-for="x in ips" :key="x" :value="x">
+                                {{x}}
+                        </option>
+                </select> 
+                <button v-on:click="onshowsettings()">Settings</button> 
+                <button v-on:click="onshowstats()">Stats</button> 
+             </div>
+                
          </div>
          <div class="div2">
              <div v-if="wsconnected">
-               <imgDisplay v-bind:imgProps="imgProps" 
-               v-bind:imgStats="imgStats"
+                 <imgDisplay v-bind:imgProps="{}" 
                v-bind:imgData="imgData"></imgDisplay >
              </div>
           </div>
           <div class="div3"> 
-          
-             <div v-if="wsconnected">
-               <captureOptions v-on:newParams="newParams" ></captureOptions >
-             </div>
-          
-          </div>
-          <div class="div4"> 
+              <div v-show="showStats"> 
+                <imgStats v-bind:imgStats="imgStats"></imgStats>
+                <imgProps v-bind:imgProps="imgProps"></imgProps>
+              </div>
+              <div v-show="showSettings"> 
+                   <captureOptions v-on:newParams="newParams" ></captureOptions >
+              </div>
           </div>
      </div> 
      
@@ -29,11 +39,13 @@
 
 import captureOptions from './components/captureOptions.vue'
 import imgDisplay from './components/imgDisplay.vue'
+import imgStats from './components/imgStats.vue'
+import imgProps from './components/imgProps.vue'
 
 export default {
   name: 'App',
   components: {
-    captureOptions,imgDisplay
+    captureOptions,imgDisplay,imgStats, imgProps
   },
   data () {
     return {
@@ -43,6 +55,8 @@ export default {
         imgData:"",
         imgProps:{},
         imgStats:{},
+        showSettings:true,
+        showStats:true,
     }
   },
   methods: {
@@ -83,7 +97,14 @@ export default {
         this.connection.onopen = this.onopen;
         this.connection.onclose = this.onclose;
 
-      }
+      },
+      onshowsettings:function(){
+        this.showSettings = !this.showSettings;
+      },
+      onshowstats:function(){
+        this.showStats = !this.showStats;
+      },
+
   },
   watch: {
       wsip:function(){
@@ -118,15 +139,15 @@ export default {
 }
 .parent {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: 1fr 4fr;
-    grid-column-gap: 2px;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 12fr;
+    grid-column-gap: 1px;
     grid-row-gap: 0px;
 }
 
-.div1 { grid-area: 1 / 1 / 2 / 6; }
-.div2 { grid-area: 2 / 1 / 3 / 3; }
-.div3 { grid-area: 2 / 3 / 3 / 4; }
-.div4 { grid-area: 2 / 1 / 3 / 3; }
+.div1 { grid-area: 1 / 1 / 2 / 2; }
+.div2 { grid-area: 2 / 1 / 3 / 2; }
+.div3 { grid-area: 2 / 1 / 3 / 2; }
+
 
 </style>

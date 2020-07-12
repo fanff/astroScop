@@ -1,22 +1,15 @@
 <template>
-  <div class="hello">
+  <div >
     <img class="viewwin" alt="camimg" v-bind:src="imgsrc()" width=100%>
- 
-    <trend :data="bvals" :gradient="['#00F']" auto-draw></trend>
-    <trend :data="gvals" :gradient="['#0F0']" auto-draw></trend>
-    <trend :data="rvals" :gradient="['#F00']" auto-draw></trend>
-  <p>
-  props : {{imgProps}}
-  </p>
   </div>
 
 </template>
 
 <script>
-import Trend from "vuetrend"
+//import Trend from "vuetrend"
 export default {
   components: {
-    Trend
+    //Trend
   },
 
   name: 'imgDisplay',
@@ -61,19 +54,5 @@ export default {
 img {
     border-style:solid;
     border-color:#a7021c;
-}
-h3 {
-  margin: 40px 0 0;
-}
-ul {
-  list-style-type: none;
-  padding: 0;
-}
-li {
-  display: inline-block;
-  margin: 0 10px;
-}
-a {
-  color: #42b983;
 }
 </style>

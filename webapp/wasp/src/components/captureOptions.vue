@@ -15,19 +15,15 @@
 
       <VueSlideBar v-model="value1" :min=0 :max=25 :lineHeight="20"/>
       <VueSlideBar v-model="value2" :min=0 :max=1000 :lineHeight="20"/>
+       
+      captureMethod<v-select v-model="capture_format" :options="capture_formats" ></v-select>
+      shootresol<v-select v-model="shootresol" :options="resols" label="name"></v-select>
+      dispresol<v-select v-model="dispresol" :options="resols" label="name"></v-select>
+      saveFormat<v-select v-model="save_format" :options="save_formats" ></v-select>
+      saveSection<v-select v-model="save_section" :options="save_sections" ></v-select>
         <p>
-      <button v-on:click="pushParams()">lol</button>
+      <button v-on:click="pushParams()">pushparams</button>
         </p>
-    <p> 
-       captureMethod<v-select v-model="capture_format" :options="capture_formats" ></v-select>
-       shootresol<v-select v-model="shootresol" :options="resols" label="name"></v-select>
-       dispresol<v-select v-model="dispresol" :options="resols" label="name"></v-select>
-       saveFormat<v-select v-model="save_format" :options="save_formats" ></v-select>
-    </p> 
-    <p> 
-    </p> 
-    <p> 
-    </p> 
       
 
   </div>
@@ -57,7 +53,7 @@ export default {
       saturation:0,
       isovalue:0,
       isovalues: [0,100,200,300,400,500,600,700,800],
-      capture_format : "jpeg",
+      capture_format : "rgb",
       capture_formats: ["jpeg","rgb","yuv"],
       expomode : "off",
       expomodes: ["night","off","verylong","fixedfps"],
@@ -77,24 +73,34 @@ export default {
           {name:"3280x2464", width:3280,height:2464},
           {name:"3296x2464", width:3296,height:2464},
       ],
-      shootresol:{name:"480x368", width:480,height:368},
+      shootresol:{name:"128x64", width:128,height:64},
       dispresol: {name:"480x368", width:480,height:368},
 
       save_format:"none",
-      save_formats:["none","tiff","bmp"]
+      save_formats:["none","tiff","bmp"],
+      
+      save_section:"work",
+      save_sections:["work","test","deep","planet","dark","flats"],
 
     }
   },
   watch:{
     redgain:function(){this.pushParams()},
     bluegain:function(){this.pushParams()},
+    brightness:function(){this.pushParams()},
+    saturation:function(){this.pushParams()},
+    exposure_compensation:function(){this.pushParams()},
+
     isovalue:function(){this.pushParams()},
     expomode:function(){this.pushParams()},
-    brightness:function(){this.pushParams()},
     value1:function(){this.pushParams()},
     value2:function(){this.pushParams()},
-    exposure_compensation:function(){this.pushParams()},
-    saturation:function(){this.pushParams()},
+
+    capture_format:function(){this.pushParams()},
+    shootresol:function(){this.pushParams()},
+    dispresol:function(){this.pushParams()},
+    save_format:function(){this.pushParams()},
+    save_section:function(){this.pushParams()},
   },
   methods: {
     ss () { return 100*this.value2 + 100000*this.value1;},
@@ -105,12 +111,13 @@ export default {
         bluegain:this.bluegain/100.0,
         expomode:this.expomode,
         capture_format:this.capture_format,
-        save_format:this.save_format,
         brightness:this.brightness,
         saturation:this.saturation,
         exposure_compensation:this.exposure_compensation,
         shootresol:this.ensureResol(this.shootresol),
         dispresol:this.ensureResol(this.dispresol),
+        save_format:this.save_format,
+        save_section:this.save_section,
       }
     },
     ensureResol(val){
