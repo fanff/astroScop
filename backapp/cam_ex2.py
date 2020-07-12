@@ -30,8 +30,11 @@ def cleanParams(params):
         "dispresol":{ "width":480,"height":368},
         "capture_format":"rgb",
         "exposure_compensation":"0",
+
+        "brightness":50,
         "saturation":"0",
-        "save_format":"none"
+        "save_format":"none",
+        "save_subsection":"",
         }
     else:
         params["shutterSpeed"]
@@ -126,6 +129,7 @@ async def cameraLoop():
                     strtTime = time.time()
                     save_format = params["save_format"]
                     save_section = params["save_section"]
+                    save_subsection = params["save_subsection"]
                     fileName = "img_%.6f"%triggerDate
                     fileName=fileName.replace(".","_")
                     if save_format == "none":
@@ -136,7 +140,11 @@ async def cameraLoop():
                     
                         fileNameExt = "%s.tiff"%fileName
                         prefix="./savedimgs/"
-                        fdest = os.path.join(prefix,save_section)
+
+                        if len(save_subsection) >0:
+                            fdest = os.path.join(prefix,save_section,save_subsection)
+                        else:
+                            fdest = os.path.join(prefix,save_section)
 
                         os.makedirs(fdest,exist_ok=True)
                         fileDest = os.path.join(fdest,fileNameExt)
@@ -155,6 +163,8 @@ async def cameraLoop():
                                 "analog_gain":float(camera.analog_gain), 
                                 "iso" :camera.iso,
                                 "brightness":camera.brightness,
+                                "saturation":camera.saturation,
+                                "exposure_compensation":camera.exposure_compensation,
                                 "resolution":list(strtResolution),
                                 "imageSize":image.size,
                                 "shutterSpeed":camera.shutter_speed,

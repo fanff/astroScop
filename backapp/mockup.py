@@ -14,6 +14,7 @@ import io
 import base64
 import copy
 import imgutils
+import shutil
 
 DEBUGMODE=0
 currentImage = None
@@ -75,6 +76,11 @@ async def sendImageStats(imgStats):
         await asyncio.wait([user.send(message) for user in USERS])
         endSend = time.time()
         log.debug("sendDur: %s",endSend-strSend)
+
+async def bcastMsg(data,msgtype):
+    if USERS: 
+        message = json.dumps({"type":msgtype,"data":data})
+        await asyncio.wait([user.send(message) for user in USERS])
 
 async def bcastImg(currentImage,usedParams):
 
@@ -179,8 +185,11 @@ async def bgjob():
             imgStats = {"histData":histData,}
             await sendImageStats(imgStats)
         else:
-            log.info("ping")
-            await asyncio.sleep(sleepdur)
+
+            total, used, free =[float(_)/(2**30) for _ in shutil.disk_usage("/")]
+            log.info("%s %s %s",total, used, free) 
+            await bcastMsg({"total":total,"used":used,"free":free},"sysInfo")
+            await asyncio.sleep(30)
 
 logging.basicConfig(level=logging.INFO)
 start_server = websockets.serve(hello, "0.0.0.0", 8765)
