@@ -104,6 +104,8 @@ async def hello(websocket, path):
     
     if "camera" in path:
         WSCAMERA=websocket
+        if currentParams:
+            await WSCAMERA.send(json.dumps(currentParams))
 
     else:
         # register as user
@@ -127,7 +129,7 @@ async def hello(websocket, path):
                     decoded = base64.b64decode(msg["imageData"].encode("utf-8"))
                     currentImage = Image.open(io.BytesIO(decoded))
                     currentUsedParams = msg["usedParams"]
-                    bcastImg(currentImage,currentUsedParams)
+                    await bcastImg(currentImage,currentUsedParams)
 
             except Exception as e:
                 log.exception("bad message! %s",e)
