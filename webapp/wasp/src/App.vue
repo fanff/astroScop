@@ -1,16 +1,27 @@
 <template>
   <div id="app">
-
-      <div v-if="wsconnected">
-        <imgDisplay v-bind:imgProps="imgProps" 
-        v-bind:imgStats="imgStats"
-        v-bind:imgData="imgData"></imgDisplay >
-        <captureOptions v-on:newParams="newParams" ></captureOptions >
-      </div>
-      <div v-else>
-      
-      </div>
-       <v-select v-model="wsip" :options="ips" ></v-select>
+     <div class="parent">
+         <div class="div1">
+            <v-select v-model="wsip" :options="ips" ></v-select>    
+         </div>
+         <div class="div2">
+             <div v-if="wsconnected">
+               <imgDisplay v-bind:imgProps="imgProps" 
+               v-bind:imgStats="imgStats"
+               v-bind:imgData="imgData"></imgDisplay >
+             </div>
+          </div>
+          <div class="div3"> 
+          
+             <div v-if="wsconnected">
+               <captureOptions v-on:newParams="newParams" ></captureOptions >
+             </div>
+          
+          </div>
+          <div class="div4"> 
+          </div>
+     </div> 
+     
   </div>
 </template>
 
@@ -103,10 +114,19 @@ export default {
 }
 
 .vs__selected {
-    
     color: #c7221c;
-
+}
+.parent {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: 1fr 4fr;
+    grid-column-gap: 2px;
+    grid-row-gap: 0px;
 }
 
+.div1 { grid-area: 1 / 1 / 2 / 6; }
+.div2 { grid-area: 2 / 1 / 3 / 3; }
+.div3 { grid-area: 2 / 3 / 3 / 4; }
+.div4 { grid-area: 2 / 1 / 3 / 3; }
 
 </style>
