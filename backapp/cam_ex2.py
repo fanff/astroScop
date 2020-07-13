@@ -51,14 +51,16 @@ async def cameraLoop():
     global continueLoop
     global freshParams
     await asyncio.sleep(1)
+
+    imgSaver = imgutils.ImgSaver("./savedimgs/")
     while True: 
         try:
             log = logging.getLogger("cameraLoop")
-            log.info("openingcamera")
             
             params = cleanParams(freshParams)
             shootresol = params["shootresol"]
             strtResolution = (shootresol["width"],shootresol["height"])
+            log.info("OpeningCamera %s"%(strtResolution,))
             with PiCamera(resolution=strtResolution, framerate_range=(0.1,30)) as camera:
                 log.info("got camera")
                 # Set ISO to the desired value
@@ -123,6 +125,10 @@ async def cameraLoop():
                     
                     
                     #log.info(image.size)
+                    strtTime = time.time()
+                    histData = imgutils.colorHist(image)
+                    hist_dur = time.time()-strtTime
+
 
                     strtTime = time.time()
                     imageDisplay = image.resize(dispresol)
@@ -133,27 +139,10 @@ async def cameraLoop():
                     save_format = params["save_format"]
                     save_section = params["save_section"]
                     save_subsection = params["save_subsection"]
-                    fileName = "img_%.6f"%triggerDate
-                    fileName=fileName.replace(".","_")
-                    if save_format == "none":
-                        
-                        fdest="none"
-                        fileNameExt="none"
-                    elif save_format == "tiff":
-                    
-                        fileNameExt = "%s.tiff"%fileName
-                        prefix="./savedimgs/"
 
-                        if len(save_subsection) >0:
-                            fdest = os.path.join(prefix,save_section,save_subsection)
-                        else:
-                            fdest = os.path.join(prefix,save_section)
+                    fdest,fileNameExt = imgSaver.save(image,save_format,save_section,save_subsection,triggerDate)
 
-                        os.makedirs(fdest,exist_ok=True)
-                        fileDest = os.path.join(fdest,fileNameExt)
-                        image.save(fileDest)
-                        log.info("saving to %s",fileDest)
-
+                    log.info("saving to %s %s",fdest,fileNameExt)
                     save_dur = time.time()-strtTime
                     
                     strtTime = time.time()
@@ -177,6 +166,7 @@ async def cameraLoop():
                                 "awb_mode":camera.awb_mode,
                                 "capture_dur":capture_dur,
                                 "pil_dur":pil_dur,
+                                "hist_dur":hist_dur,
                                 "resize_dur":resize_dur,
                                 "save_dur":save_dur,
                                 "capture_format":capture_format,
@@ -198,7 +188,7 @@ async def cameraLoop():
                     # end sending
 
                     dur = time.time()-strtTime
-                    log.info("%.2f: capture %.2f; pil %.2f; resize %.2f; save %.2f; sendl %.2f",triggerDate,capture_dur,pil_dur,resize_dur,save_dur,dur)
+                    log.info("%.2f: capture %.2f; pil %.2f;hist %.2f ;resize %.2f; save %.2f; sendl %.2f",triggerDate,capture_dur,pil_dur,hist_dur,resize_dur,save_dur,dur)
                     await asyncio.sleep(.0001)
         except Exception as e:
             log.exception("whooops")
@@ -206,21 +196,19 @@ async def cameraLoop():
 
 
 async def hello(uri):
+
+
     async with websockets.connect(uri) as websocket:
         global serverConnection 
         global freshParams 
         log=logging.getLogger("c")
-        log.info("connected")
+        log.info("Connected to server")
         #await websocket.send("Hello world!")
         serverConnection = websocket
         while True:
             data = await websocket.recv()
             #log.info("got message %s",data)
             freshParams=json.loads(data)
-        # while True:
-        # #async for data in websocket: 
-        #     data = await websocket.recv()
-        #     log.info("got message %s",data)
             
 async def bgjob():
     log = logging.getLogger("bgjob")

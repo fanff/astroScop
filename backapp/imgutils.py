@@ -5,6 +5,50 @@ from PIL import Image
 import io
 import base64
 
+import time
+import os
+
+
+class ImgSaver():
+    def __init__(self,prefix):
+        self.prefix = prefix
+    
+    def fileNameExt(self,save_format,save_section,save_subsection,triggerDate):
+        
+        fileName = "img_%.6f"%triggerDate
+        fileName=fileName.replace(".","_")
+        
+        formatToExt = {"jpg":"jpg","tiff":"tiff","bmp":"bmp"}
+
+        fileNameExt = "%s.%s"%(fileName,formatToExt[save_format])
+
+        if len(save_subsection) >0:
+            fdest = os.path.join(self.prefix,save_section,save_subsection)
+        else:
+            fdest = os.path.join(self.prefix,save_section)
+
+        return fdest,fileNameExt
+    def save(self,img,save_format,save_section,save_subsection,triggerDate):
+        strtTime = time.time()
+
+        fileName = "img_%.6f"%triggerDate
+        fileName=fileName.replace(".","_")
+        if save_format in ["tiff","jpg","bmp"]:
+            
+            fdest,fileNameExt = self.fileNameExt(save_format,save_section,save_subsection,triggerDate)
+            os.makedirs(fdest,exist_ok=True)
+            fileDest = os.path.join(fdest,fileNameExt)
+            img.save(fileDest)
+            
+            return fdest,fileNameExt
+        else:
+            fdest="none"
+            fileNameExt="none"
+
+            return fdest,fileNameExt
+
+
+        save_dur = time.time()-strtTime
 def yuvbytesToRgb(yuvbytes,width,height):
     stream = yuvbytes
     # Calculate the actual image size in the stream (accounting for rounding
