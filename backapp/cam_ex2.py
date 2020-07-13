@@ -92,10 +92,11 @@ async def cameraLoop():
 
                     camera.awb_mode = 'off'
                     camera.awb_gains = g
-                    # Finally, take several photos with the fixed settings
-                
+               
+
+
+
                     #log.info("capture start")
-                    
                     if(capture_format in ["yuv"]):
                         stream = open("/dev/shm/lol.data","w+b")
                     else:
@@ -126,7 +127,7 @@ async def cameraLoop():
                     
                     #log.info(image.size)
                     strtTime = time.time()
-                    histData = imgutils.colorHist(image)
+                    #histData = imgutils.colorHist(image)
                     hist_dur = time.time()-strtTime
 
 
