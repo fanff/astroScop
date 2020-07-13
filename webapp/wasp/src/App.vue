@@ -53,7 +53,7 @@ export default {
     return {
         wsconnected:false,
         wsip:"192.168.1.22",
-        ips:["localhost","192.168.1.22"],
+        ips:["localhost","192.168.1.22","192.168.0.40"],
         imgData:"",
         imgProps:{},
         imgStats:{},
