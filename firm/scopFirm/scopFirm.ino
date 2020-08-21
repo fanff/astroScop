@@ -14,7 +14,6 @@ float P = -10;  // PID P
 float I = 0;  // PID I
 float D = 0;  // PID D
 
-
 int cmd = 0;  // command to motor
 
 const int motpin1 = 9;
