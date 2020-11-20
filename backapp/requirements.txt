@@ -1,5 +1,7 @@
 websockets
 websocket-client
+pySerial
+
 
 # numpy APT it
 cv2-utils
