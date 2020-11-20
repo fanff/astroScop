@@ -1,10 +1,8 @@
 volatile long temp, counter = 0; //This variable will increase or decrease depending on the rotation of encoder
 
 float rspd = 0 ; // read speed
-const int sensorPin = A0;    // select the input pin for the potentiometer
-float sensorValue = 0;  // variable to store the value coming from the sensor
 
-const int sensorPin2 = A1;    // select the input pin for the potentiometer
+float target_speed = 0;  // target speed
 
 float err = 0; // PID Error
 float errprev = 0; // PID Error
@@ -24,7 +22,7 @@ int rspdidx = 0;
 float meanSpeed = 0;
 
 
-//#define DEBUGSERIAL
+#define DEBUGSERIAL
 
 void setup() {
 
@@ -47,35 +45,39 @@ void setup() {
   }
    
   void loop() {
-  // Send the value of counter
-  noInterrupts();
-  temp = counter;
-  counter=0;
-  // critical, time-sensitive code here
-  interrupts();
+    // Send the value of counter
+    noInterrupts();
+    temp = counter;
+    counter=0;
+    // critical, time-sensitive code here
+    interrupts();
 
   
-  rspd = float(temp);
-  rspdArr[rspdidx] = rspd;
-  rspdidx+=1;
-  if (rspdidx>=10){rspdidx=0;}
-  meanSpeed=0;
-  for(int i=0;i<10;i++){
-    
-    meanSpeed+=rspdArr[i];
-  }
-  meanSpeed = meanSpeed/10;
+    rspd = float(temp);
+    rspdArr[rspdidx] = rspd;
+    rspdidx+=1;
+    if (rspdidx>=10){rspdidx=0;}
+
+
+    // calculate mean speed.
+    meanSpeed=0;
+    for(int i=0;i<10;i++){
+      
+      meanSpeed+=rspdArr[i];
+    }
+    meanSpeed = meanSpeed/10;
   
-  sensorValue = float(analogRead(sensorPin)-512) /float(200);
-  I = float((analogRead(sensorPin2)-512))/16;
   
-  err = sensorValue - rspd;
+  // sensorValue -> target speed
+  err = target_speed - rspd;
   
 
   cmd = err*P +(err-errprev)*D + errcum*I;
 
-  
+  // keep error 
   errprev = err;
+
+  // sum error
   errcum +=err;
   if(errcum > 50){errcum=50;}
   if(errcum < -50){errcum=-50;}
@@ -93,8 +95,8 @@ void setup() {
     Serial.print(" mspd:" );
     Serial.print(meanSpeed);
     
-    Serial.print(" dspd:" );
-    Serial.print(sensorValue);
+    Serial.print(" ts:" );
+    Serial.print(target_speed);
   
     Serial.print(" p:" );
     Serial.print(P/10);
