@@ -44,28 +44,28 @@ void setup() {
   pinMode(motpin2, OUTPUT);
   }
    
-  void loop() {
-    // Send the value of counter
-    noInterrupts();
-    temp = counter;
-    counter=0;
-    // critical, time-sensitive code here
-    interrupts();
-
-  
-    rspd = float(temp);
-    rspdArr[rspdidx] = rspd;
-    rspdidx+=1;
-    if (rspdidx>=10){rspdidx=0;}
+void loop() {
+  // Send the value of counter
+  noInterrupts();
+  temp = counter;
+  counter=0;
+  // critical, time-sensitive code here
+  interrupts();
 
 
-    // calculate mean speed.
-    meanSpeed=0;
-    for(int i=0;i<10;i++){
-      
-      meanSpeed+=rspdArr[i];
-    }
-    meanSpeed = meanSpeed/10;
+  rspd = float(temp);
+  rspdArr[rspdidx] = rspd;
+  rspdidx+=1;
+  if (rspdidx>=10){rspdidx=0;}
+
+
+  // calculate mean speed.
+  meanSpeed=0;
+  for(int i=0;i<10;i++){
+    
+    meanSpeed+=rspdArr[i];
+  }
+  meanSpeed = meanSpeed/10;
   
   
   // sensorValue -> target speed

@@ -6,10 +6,10 @@
 </template>
 
 <script>
-//import Trend from "vuetrend"
+
 export default {
   components: {
-    //Trend
+
   },
 
   name: 'imgDisplay',

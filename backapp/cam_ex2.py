@@ -21,22 +21,22 @@ serverConnection = None
 def cleanParams(params):
     if params == None :
         return {
-        "shutterSpeed": 150000,
-        "isovalue": 100,
-        "redgain": 1.0 ,
-        "bluegain": 1.0,
-        "expomode": "off",
-        "shootresol":{ "width":480,"height":368},
-        "dispresol":{ "width":480,"height":368},
-        "capture_format":"rgb",
-        "exposure_compensation":0,
+            "shutterSpeed": 150000,
+            "isovalue": 100,
+            "redgain": 1.0 ,
+            "bluegain": 1.0,
+            "expomode": "off",
+            "shootresol":{ "width":480,"height":368},
+            "dispresol":{ "width":480,"height":368},
+            "capture_format":"rgb",
+            "exposure_compensation":0,
 
-        "brightness":50,
-        "saturation":0,
-        "contrast":0,
-        "save_format":"none",
-        "save_section":"test",
-        "save_subsection":"",
+            "brightness":50,
+            "saturation":0,
+            "contrast":0,
+            "save_format":"none",
+            "save_section":"test",
+            "save_subsection":"",
         }
     else:
         params["shutterSpeed"]
@@ -59,7 +59,12 @@ async def cameraLoop():
             
             params = cleanParams(freshParams)
             shootresol = params["shootresol"]
+
+
             strtResolution = (shootresol["width"],shootresol["height"])
+
+
+
             log.info("OpeningCamera %s"%(strtResolution,))
             with PiCamera(resolution=strtResolution, framerate_range=(0.1,30)) as camera:
                 log.info("got camera")
