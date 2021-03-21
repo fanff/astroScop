@@ -29,7 +29,7 @@
                 <imgProps v-bind:imgProps="imgProps"></imgProps>
               </div>
               <div v-show="showSettings"> 
-                   <captureOptions v-on:newParams="newParams" ></captureOptions >
+                   <captureOptions v-bind:slidestyle="slidestyle" v-on:newParams="newParams" ></captureOptions >
               </div>
           </div>
      </div> 
@@ -60,6 +60,9 @@ export default {
         showSettings:true,
         showStats:true,
         diskUsage:"?",
+        slidestyle:{
+            backgroundColor: '#c7221c'
+        }
     }
   },
   methods: {
@@ -90,10 +93,18 @@ export default {
       },
       newParams:function(params){
           if(this.wsconnected==true){
-
               var msg = {
                   msgtype:"params",
                 data:params}
+            this.connection.send(JSON.stringify(msg));
+          }
+      },
+      newMotorParams:function(params){
+          if(this.wsconnected==true){
+              var msg = {
+                  msgtype:"ctlparams",
+                  k:params.k,
+                  v:params.v}
             this.connection.send(JSON.stringify(msg));
           }
       },
@@ -138,6 +149,7 @@ export default {
   color: #c7221c;
   margin-top: 0px;
   background:black;
+
 }
 
 .vs__selected {
@@ -155,5 +167,12 @@ export default {
 .div2 { grid-area: 2 / 1 / 3 / 2; }
 .div3 { grid-area: 2 / 1 / 3 / 2; }
 
+
+button {
+  color: #c7221c;
+  background:black;
+  border-color:#c7221c;
+  font-size: 18px;
+}
 
 </style>

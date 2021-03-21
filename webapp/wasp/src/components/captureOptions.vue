@@ -1,35 +1,108 @@
-<template>
-  <div >
-      <VueSlideBar v-model="bluegain" :min=0 :max=800 :lineHeight="20"/>BLUE
+<template> <div>
+    <div >
+      <VueSlideBar v-model="bluegain" :min=0 :max=800 
+        :processStyle="{backgroundColor: slidestyle.backgroundColor, color:'blue' }"
+        :lineHeight="10"
+        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor ,color: 'black' }"/>
+      BLUE
 
-      <VueSlideBar v-model="redgain" :min=0 :max=800 :lineHeight="20"/>RED
+      <VueSlideBar v-model="redgain" :min=0 :max=800 
+                   :processStyle="{backgroundColor: slidestyle.backgroundColor}"
+        :lineHeight="10"
+        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor ,color: 'black' }"/>RED
+    </div >
 
-      <VueSlideBar v-model="brightness" :min=0 :max=100 :lineHeight="20"/>Brightness
-      <VueSlideBar v-model="contrast" :min=-100 :max=100 :lineHeight="20"/>Contrast
-      <VueSlideBar v-model="saturation" :min=-100 :max=100 :lineHeight="20"/>Saturation
-      <VueSlideBar v-model="exposure_compensation" :min=-25 :max=25 :lineHeight="20"/>Exposure
 
+    <div >
+      <VueSlideBar v-model="brightness" :min=0 :max=100
+        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
+        :lineHeight="10"
+        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor,color: 'black'  }"/>Brightness
+
+      <VueSlideBar v-model="contrast" :min=-100 :max=100 
+        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
+        :lineHeight="10"
+        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor ,color: 'black' }"/>Contrast
+      <VueSlideBar v-model="saturation" :min=-100 :max=100 
+        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
+        :lineHeight="10"
+        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor ,color: 'black' }"/>Saturation
+      <VueSlideBar v-model="exposure_compensation" :min=-25 :max=25  
+        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
+        :lineHeight="10"
+        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor ,color: 'black' }"/>Exposure
+
+    </div >
+
+
+    <div >
         <br/>
        iso<v-select v-model="isovalue" :options="isovalues" ></v-select>
        expomode<v-select v-model="expomode" :options="expomodes" ></v-select>
       
 
-      <VueSlideBar v-model="value1" :min=0 :max=25 :lineHeight="20"/>
-      <VueSlideBar v-model="value2" :min=0 :max=1000 :lineHeight="20"/>
+    </div >
+
+
+    <div >
+      <VueSlideBar v-model="value1" :min=0 :max=25 
+        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
+        :lineHeight="10"
+        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor ,color: 'black' }"/>
+      <VueSlideBar v-model="value2" :min=0 :max=1000 
+        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
+        :lineHeight="10"
+        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor,color: 'black'  }"/>
        
+    </div >
+
+
+    <div >
       captureMethod<v-select v-model="capture_format" :options="capture_formats" ></v-select>
       shootresol<v-select v-model="shootresol" :options="resols" label="name"></v-select>
       dispresol<v-select v-model="dispresol" :options="resols" label="name"></v-select>
       saveFormat<v-select v-model="save_format" :options="save_formats" ></v-select>
       saveSection<v-select v-model="save_section" :options="save_sections" ></v-select>
-      subsection<input v-model="save_subsection" >
+
+    </div >
+
+
+    <div >
+
+      subsection  <input v-model="save_subsection" >
+
+
         <p>
       <button v-on:click="pushParams()">pushparams</button>
         </p>
-      
+    </div >
 
-  </div>
-</template>
+
+    <div >
+      <VueSlideBar v-model="motorSpdSlider" :min=-10000 :max=10000 
+        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
+        :lineHeight="10"
+        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor,color: 'black'  }"/>
+      speed {{ ( motorSpdSlider / 10000)*4.0 }}
+
+        <p>
+      <button v-on:click="incSpeed(-100)">-100</button>
+      <button v-on:click="incSpeed(-10)">-10</button>
+      <button v-on:click="incSpeed(-1)">-1</button>
+      <button v-on:click="setSpeed(0)">0</button>
+      <button v-on:click="incSpeed(1)">+1</button>
+      <button v-on:click="incSpeed(10)">+10</button>
+      <button v-on:click="incSpeed(100)">+100</button>
+        </p>
+
+    </div >
+
+
+    <div >
+      <button v-on:click="pushCtlParams()">push Ctl Params</button>
+    </div >
+  
+</div></template>
 
 <script>
 import Vue from "vue"
@@ -46,6 +119,9 @@ export default {
 
   name: 'captureOptions',
   props: {
+      slidestyle:{
+          backgroundColor: 'blue'
+      }
   },
   data () {
     return {
@@ -86,6 +162,10 @@ export default {
       save_sections:["work","test","deep","planet","dark","flats"],
       
       save_subsection:"",
+        
+
+      motorSpdSlider:0.0,
+
     }
   },
   watch:{
@@ -128,6 +208,12 @@ export default {
         save_subsection:this.save_subsection,
       }
     },
+    setSpeed(val){
+        this.motorSpdSlider = val;
+    },
+    incSpeed(val){
+        this.motorSpdSlider += val;
+    },
     ensureResol(val){
         if(val ==false){ return this.resols[0]}
         else{return val}
@@ -141,10 +227,6 @@ export default {
   },
     
   mounted(){
-    //this.client = mqtt.connect("mqtt://192.168.168.3:9001");
-
-    //this.client.on("connect",this.onConnected );
-
     //console.log("created mqtt client")
   },
   beforeDestroy(){
@@ -170,7 +252,10 @@ li {
 a {
   color: #42b983;
 }
-.vue-slide-bar-tooltip{
-    color: #c7221c;
+
+input {
+  color: #c7221c;
+  background-color: black;
+  border-color:#c7221c;
 }
 </style>
