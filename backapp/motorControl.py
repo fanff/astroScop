@@ -8,30 +8,31 @@ import asyncio
 import websockets
 import logging
 import json
-
+from collections import deque
 
 import struct
 
 serverConnection = None
 serialConnection = None
+readsBuff:list = []
+BUFF_LIMIT = 50
 
+def addReading(newVal):
+    global readsBuff
+    if len(readsBuff)>BUFF_LIMIT:
+        readsBuff.pop(0)
+    readsBuff.append(newVal)
 
 def encodeLine(pname:str, value):
     # encode pname,value
     ba = pname.encode("ASCII")+bytearray(struct.pack("f", value))
-
-
     ba +="#".encode("ASCII")
-
-
-    b: bytes
-    hexmess = " ".join([hex(b) for b in bytearray(struct.pack("f", value))])
-    decmess = " ".join(["%d" % b for b in bytearray(struct.pack("f", value))])
-
-    logging.info(hexmess)
-    logging.info(decmess)
-
-
+    #b: bytes
+    #hexmess = " ".join([hex(b) for b in bytearray(struct.pack("f", value))])
+    #decmess = " ".join(["%d" % b for b in bytearray(struct.pack("f", value))])
+#
+    #logging.info(hexmess)
+    #logging.info(decmess)
     return ba
 
 def sendParam(serialConnection:serial.Serial,ba):
@@ -68,7 +69,9 @@ async def motorSerialJob(serialPort='/dev/ttyS0'):
 
                     try:
                         linedata = decodeLine(line)
-                        log.info("got line from serial %s",linedata)
+                        #log.info("got line from serial %s",linedata)
+
+                        addReading(linedata)
                     except Exception as e :
                         log.warning("undecodable line %s %s",str(e) ,line)
 
@@ -108,15 +111,29 @@ async def bgjob():
     log = logging.getLogger("bgjob")
 
     global serialConnection
-
+    global readsBuff
     while True:
         log.info("bgjob")
         await asyncio.sleep(5)
         if serialConnection is not None:
-            value = random.uniform(0,3)
+            value = 2.4#random.uniform(0,3)
             log.info("sending value T: %s",value)
             ba = encodeLine("T", value)
             sendParam(serialConnection, ba)
+
+        if len(readsBuff)>0:
+            import pandas as pd
+            import matplotlib as plt
+            df:pd.DataFrame = pd.DataFrame(readsBuff)
+            errvar = df["err"].var()
+            errmean = df["err"].mean()
+            log.info("error stats  %.2f +/- %.5f",errmean,errvar)
+
+            mspdvar = df["mspd"].var()
+            mspdmean = df["mspd"].mean()
+            log.info("speed stats  %.2f +/- %.5f", mspdmean, mspdvar)
+
+            #plt.plot(df)
 
 async def main():
 
