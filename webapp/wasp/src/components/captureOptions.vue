@@ -1,4 +1,4 @@
-<template> <div>
+<template> <v-card class="d-flex flex-column mb-6">
     <div >
       <VueSlideBar v-model="bluegain" :min=0 :max=800 
         :processStyle="{backgroundColor: slidestyle.backgroundColor, color:'blue' }"
@@ -102,7 +102,7 @@
       <button v-on:click="pushCtlParams()">push Ctl Params</button>
     </div >
   
-</div></template>
+</v-card></template>
 
 <script>
 import Vue from "vue"

@@ -3,6 +3,13 @@
 
      <div class="parent">
          <div class="div1">
+             <v-alert
+                       border="top"
+                             color="red lighten-2"
+                                   dark
+                                       >
+                                             I'm an alert with a top border and red color
+                                                 </v-alert>
              <div>
                 
                  <label for="wsip"></label>
@@ -11,8 +18,8 @@
                                 {{x}}
                         </option>
                 </select> 
-                <button v-on:click="onshowsettings()">Settings</button> 
-                <button v-on:click="onshowstats()">Stats</button> 
+                <v-btn v-on:click="onshowsettings()">Settings</v-btn> 
+                <v-btn v-on:click="onshowstats()">Stats</v-btn> 
                 {{diskUsage}}
              </div>
                 
@@ -146,33 +153,28 @@ export default {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-align: center;
+/*.parent {
   color: #c7221c;
   margin-top: 0px;
   background:black;
+  background-color: black;
 
+*/
 }
 
 .vs__selected {
     color: #c7221c;
 }
-.parent {
+/*.parent {
     display: grid;
     grid-template-columns: 1fr;
     grid-template-rows: 1fr 12fr;
     grid-column-gap: 1px;
     grid-row-gap: 0px;
 }
-
 .div1 { grid-area: 1 / 1 / 2 / 2; }
 .div2 { grid-area: 2 / 1 / 3 / 2; }
 .div3 { grid-area: 2 / 1 / 3 / 2; }
 
-
-button {
-  color: #c7221c;
-  background:black;
-  border-color:#c7221c;
-  font-size: 18px;
-}
-
+*/
 </style>
