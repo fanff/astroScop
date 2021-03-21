@@ -19,6 +19,8 @@ import shutil
 from backapp import imgutils
 
 DEBUGMODE = 0
+
+
 currentImage = None
 currentUsedParams = None
 
@@ -56,6 +58,7 @@ async def unregister(websocket):
     USERS.remove(websocket)
 
 
+
 async def sendImage(imgData):
     if USERS:
         log = logging.getLogger("sendImage")
@@ -90,6 +93,7 @@ async def sendImageStats(imgStats):
         log.debug("sendDur: %s", endSend - strSend)
 
 
+
 async def bcastMsg(data, msgtype):
     if USERS:
         message = json.dumps({"type": msgtype, "data": data})
@@ -112,7 +116,7 @@ async def bcastImg(currentImage, usedParams):
     await asyncio.sleep(.4)
 
 
-async def hello(websocket, path):
+async def handler(websocket, path):
     global currentParams
     global currentImage
     global currentUsedParams
@@ -136,9 +140,11 @@ async def hello(websocket, path):
 
     try:
         while True:
-            name = await websocket.recv()
+            rawData = await websocket.recv()
+
+
             try:
-                msg = json.loads(name)
+                msg = json.loads(rawData)
                 if msg["msgtype"] == "params":
                     currentParams = msg["data"]
                     if WSCAMERA:
@@ -146,6 +152,9 @@ async def hello(websocket, path):
                         log.info("setting new params")
                     else:
                         log.info("setting new params, no camera detected")
+                elif msg["msgtype"] == "ctlparams":
+                    await WSMOTOR.send(rawData)
+
                 elif msg["msgtype"] == "srcimage":
                     log.info("got image, send current Params")
                     # await websocket.send(json.dumps(currentParams))
@@ -153,6 +162,9 @@ async def hello(websocket, path):
                     currentImage = Image.open(io.BytesIO(decoded))
                     currentUsedParams = msg["usedParams"]
                     await bcastImg(currentImage, currentUsedParams)
+                elif msg["msgtype"] == "motorInfo":
+                    #log.info("got motor info data ")
+                    await bcastMsg(msg["data"], "motorInfo")
 
             except Exception as e:
                 log.exception("bad message! %s", e)
@@ -210,7 +222,12 @@ async def bgjob():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    start_server = websockets.serve(hello, "0.0.0.0", 8765)
+
+    WSHOST = "0.0.0.0"
+    WSPORT = 8765
+
+    logging.info("listening at ws://%s:%s"%(WSHOST, WSPORT))
+    start_server = websockets.serve(handler, WSHOST, WSPORT)
 
     asyncio.get_event_loop().run_until_complete(start_server)
     asyncio.get_event_loop().run_until_complete(bgjob())
