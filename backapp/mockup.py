@@ -163,7 +163,7 @@ async def handler(websocket, path):
                     currentUsedParams = msg["usedParams"]
                     await bcastImg(currentImage, currentUsedParams)
                 elif msg["msgtype"] == "motorInfo":
-                    #log.info("got motor info data ")
+                    log.info("got motor info data ")
                     await bcastMsg(msg["data"], "motorInfo")
 
             except Exception as e:
