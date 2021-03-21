@@ -2,7 +2,7 @@
 
 
 import serial
-
+import random
 import logging
 import asyncio
 import websockets
@@ -19,10 +19,25 @@ serialConnection = None
 def encodeLine(pname:str, value):
     # encode pname,value
     ba = pname.encode("ASCII")+bytearray(struct.pack("f", value))
+
+
     ba +="#".encode("ASCII")
+
+
+    b: bytes
+    hexmess = " ".join([hex(b) for b in bytearray(struct.pack("f", value))])
+    decmess = " ".join(["%d" % b for b in bytearray(struct.pack("f", value))])
+
+    logging.info(hexmess)
+    logging.info(decmess)
+
+
     return ba
 
 def sendParam(serialConnection:serial.Serial,ba):
+
+
+
     serialConnection.write(ba)
     serialConnection.flush()
 
@@ -36,32 +51,36 @@ def decodeLine(line:bytearray):
 
 async def motorSerialJob(serialPort='/dev/ttyS0'):
     log = logging.getLogger("serialJob")
-    try:
-        global serialConnection
-        with serial.Serial(serialPort, 9600, timeout=1) as ser:
 
-            #
+    while True:
+        try:
+            global serialConnection
+            with serial.Serial(serialPort, 9600, timeout=1) as ser:
 
-            serialConnection = ser
+                #
 
-            while True:
-                #x = ser.read()          # read one byte
-                #s = ser.read(10)        # read up to ten bytes (timeout)
-                line = ser.readline()   # read a '\n' terminated line
+                serialConnection = ser
 
-                try:
-                    linedata = decodeLine(line)
-                    log.info("got line from serial %s",linedata)
-                except Exception as e :
-                    log.warning("undecodable line %s %s",str(e) ,line)
+                while True:
+                    #x = ser.read()          # read one byte
+                    #s = ser.read(10)        # read up to ten bytes (timeout)
+                    line = ser.readline()   # read a '\n' terminated line
+
+                    try:
+                        linedata = decodeLine(line)
+                        log.info("got line from serial %s",linedata)
+                    except Exception as e :
+                        log.warning("undecodable line %s %s",str(e) ,line)
 
 
-                await asyncio.sleep(.1)
-        serialConnection = None
+                    await asyncio.sleep(.1)
+            serialConnection = None
 
-    except Exception as e:
-        serialConnection = None
-        log.exception("wooops")
+        except Exception as e:
+            serialConnection = None
+            log.warning(str(e))
+
+        await asyncio.sleep(2)
 
 
 
@@ -87,10 +106,17 @@ async def motorJob(uri):
 
 async def bgjob():
     log = logging.getLogger("bgjob")
-    sleepdur = 1
+
+    global serialConnection
+
     while True:
         log.info("bgjob")
-        await asyncio.sleep(sleepdur)
+        await asyncio.sleep(5)
+        if serialConnection is not None:
+            value = random.uniform(0,3)
+            log.info("sending value T: %s",value)
+            ba = encodeLine("T", value)
+            sendParam(serialConnection, ba)
 
 async def main():
 
