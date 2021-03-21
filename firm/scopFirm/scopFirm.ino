@@ -8,8 +8,8 @@ float err = 0; // PID Error
 float errprev = 0; // PID Error
 float errcum = 0; // PID Error cumulated
 
-float P = -10;  // PID P
-float I = 0;  // PID I
+float P = 80;  // PID P
+float I = 15 ;  // PID I
 float D = 0;  // PID D
 
 int cmd = 0;  // command to motor
@@ -17,20 +17,30 @@ int cmd = 0;  // command to motor
 const int motpin1 = 9;
 const int motpin2 = 10;
 
-float rspdArr[10] = {0,0,0,0,0};
-int rspdidx = 0;
+float speedGamma = .9;
+
 float meanSpeed = 0;
 
 
-#define DEBUGSERIAL
+// for serial decode code
+union u_tag {
+   byte b[4];
+   float fval;
+} u;
+
+
+byte paramName = 0;
+byte value1 = 0;
+byte value2 = 0;
+byte value3 = 0;
+byte value4 = 0;
+byte term = 0;
+
+
+
 
 void setup() {
-
-  #ifdef DEBUGSERIAL
-    Serial.begin (9600);
-  #endif
-  
-
+  Serial.begin (9600);
   
   pinMode(2, INPUT_PULLUP); // internal pullup input pin 2 
   pinMode(3, INPUT_PULLUP); // internal pullup input pin 3
@@ -42,7 +52,9 @@ void setup() {
 
   pinMode(motpin1, OUTPUT);
   pinMode(motpin2, OUTPUT);
-  }
+}
+
+
    
 void loop() {
   // Send the value of counter
@@ -52,70 +64,140 @@ void loop() {
   // critical, time-sensitive code here
   interrupts();
 
-
+  // cast read speed to float
   rspd = float(temp);
-  rspdArr[rspdidx] = rspd;
-  rspdidx+=1;
-  if (rspdidx>=10){rspdidx=0;}
-
 
   // calculate mean speed.
-  meanSpeed=0;
-  for(int i=0;i<10;i++){
+  meanSpeed= meanSpeed*speedGamma + rspd * (1.0-speedGamma) ;
     
-    meanSpeed+=rspdArr[i];
-  }
-  meanSpeed = meanSpeed/10;
   
   
   // sensorValue -> target speed
-  err = target_speed - rspd;
+  err = target_speed - meanSpeed;
   
+  // sum error
+  errcum +=err;
+  if(errcum > 15){errcum=15;}
+  if(errcum < -15){errcum=-15;}
 
-  cmd = err*P +(err-errprev)*D + errcum*I;
+  // calculate command
+  cmd = (err*P) +  ( (err-errprev)*D )  + ( errcum*I) ;
 
   // keep error 
   errprev = err;
 
-  // sum error
-  errcum +=err;
-  if(errcum > 50){errcum=50;}
-  if(errcum < -50){errcum=-50;}
-
-  
+  //
   if (cmd>0){
     goBackward(cmd);
   }else{
     goForward(-cmd);
   }
-  #ifdef DEBUGSERIAL
+
+  
+  printValues();
+  
+  checkSerial();
+  delay(200);
+
+  
+}
+
+
+void printValues(){
+
     Serial.print("rspd:" );
     Serial.print(rspd);
   
     Serial.print(" mspd:" );
-    Serial.print(meanSpeed);
+    Serial.print(meanSpeed,6);
     
     Serial.print(" ts:" );
-    Serial.print(target_speed);
-  
-    Serial.print(" p:" );
-    Serial.print(P/10);
-  
-    Serial.print(" I:" );
-    Serial.print(I/10);
-    
+    Serial.print(target_speed,6);
      
     Serial.print(" err:" );
-    Serial.print(err);
+    Serial.print(err,6);
+
     
+      /*
+    Serial.print(" pn:" );
+    Serial.print(paramName);
+
+    Serial.print(" term:" );
+    Serial.print(term);
+
+
+    Serial.print(" fval:" );
+    Serial.print(u.fval,6);
+
+
+    Serial.print(" v1:" );
+    Serial.print(value1);
+    Serial.print(" v2:" );
+    Serial.print(value2);
+    Serial.print(" v3:" );
+    Serial.print(value3);
+    Serial.print(" v4:" );
+    Serial.print(value4);
+  
+    */
     Serial.print(" cmd:" );
-    Serial.print(float(cmd)/255);
-   
+    Serial.print(float(cmd)/100);
    
     Serial.println("" );
-  #endif
+  
+  
+}
 
-  delay(500);
+
+  
+void checkSerial(){
+  int toread = Serial.available();
+  if (toread>=6){
+    paramName = Serial.read();
+    value1 = Serial.read();
+    value2 = Serial.read();
+    value3 = Serial.read();
+    value4 = Serial.read();
+    term = Serial.read();
+
+    if(term== '#'){
+      u.b[0] = value1;
+      u.b[1] = value2;
+      u.b[2] = value3;
+      u.b[3] = value4;
+      
+     
+
+      if(paramName == 'P'){
+        P = u.fval;
+      }else if (paramName == 'I'){  
+        I = u.fval;
+      }else if (paramName == 'D'){  
+        D = u.fval;
+      }else if (paramName == 'G'){  
+        speedGamma = u.fval;
+      }   
+      else if (paramName == 'T'){  
+        target_speed = u.fval;
+      }
+      
+    }
+    else{
+      // unsynced, clear all buffer
+      byte stopreading = 0;
+      while(Serial.available()>0 && stopreading!= 0){
+        term = Serial.read();
+        if(term== '#'){
+          stopreading = 1;
+        }
+        
+      }
+    }
+
+    
+  }
+
+
   
 }
        
