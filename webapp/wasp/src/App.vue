@@ -33,7 +33,7 @@
                 <motorStats v-bind:motorStats="motorStats"></motorStats>
               </div>
               <div v-show="showSettings"> 
-                   <captureOptions v-bind:slidestyle="slidestyle" v-on:newParams="newParams" ></captureOptions >
+                   <captureOptions v-bind:slidestyle="slidestyle" v-on:newParams="newParams" v-on:newMotorParams="newMotorParams" ></captureOptions >
               </div>
           </div>
      </div> 

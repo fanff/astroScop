@@ -83,7 +83,7 @@
         :processStyle="{backgroundColor: slidestyle.backgroundColor}"
         :lineHeight="10"
         :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor,color: 'black'  }"/>
-      speed {{ ( motorSpdSlider / 10000)*4.0 }}
+      speed {{ calcSpeed() }}
 
         <p>
       <button v-on:click="incSpeed(-100)">-100</button>
@@ -99,7 +99,7 @@
 
 
     <div >
-      <button v-on:click="pushCtlParams()">push Ctl Params</button>
+      <button v-on:click="pushMotorParams()">push Ctl Params</button>
     </div >
   
 </div></template>
@@ -189,6 +189,9 @@ export default {
     save_subsection:function(){this.pushParams()},
   },
   methods: {
+    calcSpeed(){
+        return ( this.motorSpdSlider / 10000)*4.0
+    },
     ss () { return 100*this.value2 + 100000*this.value1;},
     configData () { return {
         shutterSpeed:this.ss(),
@@ -212,7 +215,7 @@ export default {
         this.motorSpdSlider = val;
     },
     incSpeed(val){
-        this.motorSpdSlider += val;
+        this.motorSpdSlider = this.motorSpdSlider+ val;
     },
     ensureResol(val){
         if(val ==false){ return this.resols[0]}
@@ -223,6 +226,12 @@ export default {
 
         //console.log(params);
         this.$emit("newParams",params);
+    },
+    pushMotorParams(){
+        var params = {k:"T",v:this.calcSpeed()}
+
+        //console.log(params);
+        this.$emit("newMotorParams",params);
     }
   },
     
