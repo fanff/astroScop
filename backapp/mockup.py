@@ -15,8 +15,8 @@ import copy
 
 import shutil
 
-# import imgutils
-from backapp import imgutils
+import imgutils
+# from backapp import imgutils
 
 DEBUGMODE = 0
 
