@@ -13,6 +13,7 @@
                 </select> 
                 <button v-on:click="onshowsettings()">Settings</button> 
                 <button v-on:click="onshowstats()">Stats</button> 
+                <button v-on:click="onshowmotorstats()">MotorStats</button> 
                 {{diskUsage}}
              </div>
                 
@@ -27,6 +28,9 @@
               <div v-show="showStats"> 
                 <imgStats v-bind:imgStats="imgStats"></imgStats>
                 <imgProps v-bind:imgProps="imgProps"></imgProps>
+              </div>
+              <div v-show="showMotorstats"> 
+                <motorStats v-bind:motorStats="motorStats"></motorStats>
               </div>
               <div v-show="showSettings"> 
                    <captureOptions v-bind:slidestyle="slidestyle" v-on:newParams="newParams" ></captureOptions >
@@ -43,32 +47,36 @@ import captureOptions from './components/captureOptions.vue'
 import imgDisplay from './components/imgDisplay.vue'
 import imgStats from './components/imgStats.vue'
 import imgProps from './components/imgProps.vue'
+import motorStats from './components/motorStats.vue'
 
 export default {
   name: 'App',
   components: {
-    captureOptions,imgDisplay,imgStats, imgProps
+    captureOptions,imgDisplay,imgStats, imgProps,motorStats
   },
   data () {
     return {
         wsconnected:false,
-        wsip:"192.168.1.22",
-        ips:["localhost","192.168.1.22","192.168.0.40"],
+        wsip:"192.168.1.85",
+        ips:["localhost","192.168.1.22","192.168.0.40","192.168.1.85"],
         imgData:"",
         imgProps:{},
         imgStats:{},
         showSettings:true,
         showStats:true,
+        showMotorstats:true,
         diskUsage:"?",
         slidestyle:{
             backgroundColor: '#c7221c'
-        }
+        },
+
+        motorStats:[]
     }
   },
   methods: {
       onmessage:function(msg){
           var data = JSON.parse(msg.data)
-          var msgtype = data.type
+          var msgtype = data.msgtype
           if(msgtype=="imgData"){
             this.imgData = data.data
           }
@@ -80,6 +88,13 @@ export default {
           }
           else if(msgtype=="sysInfo"){
             this.diskUsage = ((data.data.used/data.data.total)*100).toFixed(1);
+          }
+          else if(msgtype=="motorInfo"){
+            while(this.motorStats.length>=100){
+              this.motorStats.shift();
+            }
+
+            this.motorStats.push(data);
           }else{
             console.log(data);
           }
@@ -87,8 +102,8 @@ export default {
       onopen:function(){
         this.wsconnected = true; 
       },
-      onclose:function(){
-        console.log("onClose")
+      onclose:function(info){
+        console.log("onClose",info)
         this.wsconnected = false; 
       },
       newParams:function(params){
@@ -114,6 +129,9 @@ export default {
         this.connection.onopen = this.onopen;
         this.connection.onclose = this.onclose;
 
+      },
+      onshowmotorstats:function(){
+        this.showMotorstats = !this.showMotorstats;
       },
       onshowsettings:function(){
         this.showSettings = !this.showSettings;
