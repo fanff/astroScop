@@ -64,7 +64,7 @@ async def sendImage(imgData):
     if len(USERS)>0:
 
         strSend = time.time()
-        message = json.dumps({"type": "imgData", "data": imgData})
+        message = json.dumps({"msgtype": "imgData", "data": imgData})
         log.info("sending message size %s to %s users", len(message),len(USERS))
         await asyncio.wait([user.send(message) for user in USERS])
         endSend = time.time()
@@ -87,7 +87,7 @@ async def sendImageStats(imgStats):
         log = logging.getLogger("sendImageStats")
 
         strSend = time.time()
-        message = json.dumps({"type": "imgStats", "data": imgStats})
+        message = json.dumps({"msgtype": "imgStats", "data": imgStats})
         await asyncio.wait([user.send(message) for user in USERS])
         endSend = time.time()
         log.debug("sendDur: %s", endSend - strSend)
@@ -96,7 +96,7 @@ async def sendImageStats(imgStats):
 
 async def bcastMsg(data, msgtype):
     if USERS:
-        message = json.dumps({"type": msgtype, "data": data})
+        message = json.dumps({"msgtype": msgtype, "data": data})
         await asyncio.wait([user.send(message) for user in USERS])
 
 
@@ -151,7 +151,7 @@ async def handler(websocket, path):
                     currentParams = msg["data"]
                     if WSCAMERA:
                         log.info("sending params to camera")
-                        await WSCAMERA.send(msg)
+                        await WSCAMERA.send(rawData)
                     else:
                         log.info("setting new params, no camera detected")
                 elif msg["msgtype"] == "ctlparams":
@@ -164,7 +164,7 @@ async def handler(websocket, path):
                     currentUsedParams = msg["usedParams"]
                     await bcastImg(currentImage, currentUsedParams)
                 elif msg["msgtype"] == "motorInfo":
-                    log.info("got motor info data ")
+                    #log.info("got motor info data ")
                     await bcastMsg(msg["data"], "motorInfo")
 
             except Exception as e:
