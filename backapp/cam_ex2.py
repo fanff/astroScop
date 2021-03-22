@@ -82,7 +82,6 @@ async def cameraLoop():
                     capture_format = params["capture_format"]
 
                     camera.iso = params["isovalue"]
-                    #log.info("analog_gain %s",camera.analog_gain)
                     camera.brightness = params["brightness"] 
                     camera.contrast = params["contrast"] 
                     #camera.analog_gain=1.0 
@@ -91,22 +90,23 @@ async def cameraLoop():
                     camera.saturation = params["saturation"]
                     
                     camera.shutter_speed =params["shutterSpeed"]
-                    #log.info("exposure speed %s" , camera.exposure_speed)
                     
                     g=(params["redgain"],params["bluegain"])
-
+                    
+                    log.info("setting awb_mode off")
                     camera.awb_mode = 'off'
                     camera.awb_gains = g
                
 
 
 
-                    #log.info("capture start")
+                    log.info("create databuff")
                     if(capture_format in ["yuv"]):
                         stream = open("/dev/shm/lol.data","w+b")
                     else:
                         stream = BytesIO()
 
+                    log.info("capture start capture_format:%s",capture_format)
                     triggerDate = time.time()
                     camera.capture(stream,format=capture_format)
                 
@@ -114,6 +114,7 @@ async def cameraLoop():
                     
                     
                     # into pill
+                    log.info("reading image")
                     strtTime = time.time()
                     if (capture_format == "jpeg"):
                         stream.seek(0)
@@ -136,6 +137,7 @@ async def cameraLoop():
                     hist_dur = time.time()-strtTime
 
 
+                    log.info("resizing")
                     strtTime = time.time()
                     imageDisplay = image.resize(dispresol)
                     resize_dur = time.time()-strtTime
@@ -203,19 +205,36 @@ async def cameraLoop():
 
 async def hello(uri):
 
+    global serverConnection 
+    global freshParams 
+    log=logging.getLogger("wsclient")
+    log.info("Connected to server")
 
-    async with websockets.connect(uri) as websocket:
-        global serverConnection 
-        global freshParams 
-        log=logging.getLogger("c")
-        log.info("Connected to server")
-        #await websocket.send("Hello world!")
-        serverConnection = websocket
-        while True:
-            data = await websocket.recv()
-            #log.info("got message %s",data)
-            freshParams=json.loads(data)
-            
+    while True:
+        try:
+            async with websockets.connect(uri) as websocket:
+                #await websocket.send("Hello world!")
+                serverConnection = websocket
+                while True:
+                    data = await websocket.recv()
+                    #log.info("got message %s",data)
+
+                    msg=json.loads(data)
+
+                    if msg["msgtype"]== "params":
+                        freshParams = msg["data"]
+                    else:
+                        log.warning("received type %s",msg["msgtype"])
+
+
+        except Exception as e:
+            log.exception("websocket disconnected %s",str(e))
+            serverConnection = None
+        
+        sleepdur = 1
+        log.info("reconnecting websocket in %s",sleepdur)
+        await asyncio.sleep(sleepdur)
+
 async def bgjob():
     log = logging.getLogger("bgjob")
     sleepdur = 1
