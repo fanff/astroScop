@@ -112,6 +112,7 @@ async def motorJob(uri):
     log = logging.getLogger("motorJob")
     while True:
         try:
+            log.info("connecting to %s",uri)
             async with websockets.connect(uri) as websocket:
                 global serverConnection
                 global serialConnection
@@ -143,23 +144,24 @@ async def bgjob():
         log.info("bgjob")
         await asyncio.sleep(5)
 
-        if len(readsBuff)>0:
-            import pandas as pd
-            import matplotlib as plt
-            df:pd.DataFrame = pd.DataFrame(readsBuff)
-            errvar = df["err"].var()
-            errmean = df["err"].mean()
-            log.info("error stats  %.2f +/- %.5f",errmean,errvar)
+        #if len(readsBuff)>0:
+        #    import pandas as pd
+        #    import matplotlib as plt
+        #    df:pd.DataFrame = pd.DataFrame(readsBuff)
+        #    errvar = df["err"].var()
+        #    errmean = df["err"].mean()
+        #    log.info("error stats  %.2f +/- %.5f",errmean,errvar)
 
-            mspdvar = df["mspd"].var()
-            mspdmean = df["mspd"].mean()
-            log.info("speed stats  %.2f +/- %.5f", mspdmean, mspdvar)
+        #    mspdvar = df["mspd"].var()
+        #    mspdmean = df["mspd"].mean()
+        #    log.info("speed stats  %.2f +/- %.5f", mspdmean, mspdvar)
 
 
 async def main():
 
 
     serialPort= 'COM3'
+    serialPort= '/dev/ttyACM0'
 
 
     task1 = asyncio.create_task( motorJob('ws://localhost:8765/motor'))

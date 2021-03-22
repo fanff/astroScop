@@ -106,7 +106,7 @@ async def cameraLoop():
                     else:
                         stream = BytesIO()
 
-                    log.info("capture start")
+                    log.info("capture start capture_format:%s",capture_format)
                     triggerDate = time.time()
                     camera.capture(stream,format=capture_format)
                 
@@ -205,19 +205,36 @@ async def cameraLoop():
 
 async def hello(uri):
 
+    global serverConnection 
+    global freshParams 
+    log=logging.getLogger("wsclient")
+    log.info("Connected to server")
 
-    async with websockets.connect(uri) as websocket:
-        global serverConnection 
-        global freshParams 
-        log=logging.getLogger("c")
-        log.info("Connected to server")
-        #await websocket.send("Hello world!")
-        serverConnection = websocket
-        while True:
-            data = await websocket.recv()
-            #log.info("got message %s",data)
-            freshParams=json.loads(data)
-            
+    while True:
+        try:
+            async with websockets.connect(uri) as websocket:
+                #await websocket.send("Hello world!")
+                serverConnection = websocket
+                while True:
+                    data = await websocket.recv()
+                    #log.info("got message %s",data)
+
+                    msg=json.loads(data)
+
+                    if msg["msgtype"]== "params":
+                        freshParams = msg["data"]
+                    else:
+                        log.warning("received type %s",msg["msgtype"])
+
+
+        except Exception as e:
+            log.exception("websocket disconnected %s",str(e))
+            serverConnection = None
+        
+        sleepdur = 1
+        log.info("reconnecting websocket in %s",sleepdur)
+        await asyncio.sleep(sleepdur)
+
 async def bgjob():
     log = logging.getLogger("bgjob")
     sleepdur = 1

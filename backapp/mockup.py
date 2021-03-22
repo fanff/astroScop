@@ -60,12 +60,12 @@ async def unregister(websocket):
 
 
 async def sendImage(imgData):
-    if USERS:
-        log = logging.getLogger("sendImage")
+    log = logging.getLogger("sendImage")
+    if len(USERS)>0:
 
         strSend = time.time()
         message = json.dumps({"type": "imgData", "data": imgData})
-        log.info("sending message size %s", len(message))
+        log.info("sending message size %s to %s users", len(message),len(USERS))
         await asyncio.wait([user.send(message) for user in USERS])
         endSend = time.time()
         log.info("sendImage %s", endSend - strSend)
@@ -128,8 +128,8 @@ async def handler(websocket, path):
     if "camera" in path:
         WSCAMERA = websocket
         if currentParams:
-            await WSCAMERA.send(json.dumps(currentParams))
-    if "motor" in path:
+            await WSCAMERA.send(json.dumps({"msgtype":"params","data":currentParams}))
+    elif "motor" in path:
 
         log.info("setting motor connection")
         WSMOTOR = websocket
@@ -137,6 +137,8 @@ async def handler(websocket, path):
     else:
         # register as a new user
         await register(websocket)
+
+
 
     try:
         while True:
@@ -148,16 +150,15 @@ async def handler(websocket, path):
                 if msg["msgtype"] == "params":
                     currentParams = msg["data"]
                     if WSCAMERA:
-                        await WSCAMERA.send(json.dumps(currentParams))
-                        log.info("setting new params")
+                        log.info("sending params to camera")
+                        await WSCAMERA.send(msg)
                     else:
                         log.info("setting new params, no camera detected")
                 elif msg["msgtype"] == "ctlparams":
                     await WSMOTOR.send(rawData)
 
                 elif msg["msgtype"] == "srcimage":
-                    log.info("got image, send current Params")
-                    # await websocket.send(json.dumps(currentParams))
+                    log.info("got image")
                     decoded = base64.b64decode(msg["imageData"].encode("utf-8"))
                     currentImage = Image.open(io.BytesIO(decoded))
                     currentUsedParams = msg["usedParams"]
