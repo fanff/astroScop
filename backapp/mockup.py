@@ -50,6 +50,23 @@ WSMOTOR = None
 USERS = set()
 
 
+
+
+def makeMessage(msgtype,data,jdump=False):
+    """
+
+    {"msttype": "string",
+    "data": }
+
+
+    """
+    msg ={"msgtype": "imgData", "data": imgData}
+    if jdump:
+        return json.dumps(msg)
+    else:
+        return msg
+
+
 async def register(websocket):
     USERS.add(websocket)
 
@@ -59,61 +76,32 @@ async def unregister(websocket):
 
 
 
-async def sendImage(imgData):
-    log = logging.getLogger("sendImage")
+async def bcastMsg(data, msgtype):
+    """
+    broadcast to all web users 
+    """
+    log = logging.getLogger("bcastcastMsg")
     if len(USERS)>0:
-
         strSend = time.time()
-        message = json.dumps({"msgtype": "imgData", "data": imgData})
-        log.info("sending message size %s to %s users", len(message),len(USERS))
+        message = makeMessage(msgtype,data,jdump=True)
+        log.info("broadcasting message size %s to %s users", len(message),len(USERS))
         await asyncio.wait([user.send(message) for user in USERS])
-        endSend = time.time()
-        log.info("sendImage %s", endSend - strSend)
 
-
-async def sendImageProps(imgProps):
-    if USERS:
-        log = logging.getLogger("sendImageProps")
-
-        strSend = time.time()
-        message = json.dumps({"type": "imgProps", "data": imgProps})
-        await asyncio.wait([user.send(message) for user in USERS])
-        endSend = time.time()
-        log.info("sendDur: %s", endSend - strSend)
-
-
-async def sendImageStats(imgStats):
-    if USERS:
-        log = logging.getLogger("sendImageStats")
-
-        strSend = time.time()
-        message = json.dumps({"msgtype": "imgStats", "data": imgStats})
-        await asyncio.wait([user.send(message) for user in USERS])
         endSend = time.time()
         log.debug("sendDur: %s", endSend - strSend)
-
-
-
-async def bcastMsg(data, msgtype):
-    if USERS:
-        message = json.dumps({"msgtype": msgtype, "data": data})
-        await asyncio.wait([user.send(message) for user in USERS])
-
 
 async def bcastImg(currentImage, usedParams):
     b64imgData = imgutils.pilimTobase64Jpg(currentImage)
     histData = imgutils.colorHist(currentImage)
 
-    await sendImage(b64imgData)
-
+    await bcastMsg(b64imgData, "imgData")
     imgProps = {"usedParams": usedParams,
                 "triggerDate": "no info",
                 }
-    await sendImageProps(imgProps)
+    await bcastMsg(imgProps, "imgProps")
 
     imgStats = {"histData": histData, }
-    await sendImageStats(imgStats)
-    await asyncio.sleep(.4)
+    await bcastMsg(imgStats, "imgStats")
 
 
 async def handler(websocket, path):
