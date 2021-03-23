@@ -44,8 +44,8 @@ WSMOTOR = None
 USERS = set()
 
 
-MOTORSTATS=MsgBuff(1000)
-CAMSTATS=MsgBuff(1000)
+MOTORSTATS=MsgBuff(10000)
+CAMSTATS=MsgBuff(10000)
 
 def makeRandomImage(width, height):
     # random Pil Image
@@ -211,6 +211,8 @@ async def handler(websocket, path):
 async def bgjob(diskList):
     log = logging.getLogger("bgjob")
     global currentParams
+    global WSMOTOR
+    global WSCAMERA
     sleepdur = 1
     while True:
 
@@ -244,7 +246,12 @@ async def bgjob(diskList):
             
             MOTORSTATS.saveAsJson("./motorstats.json")
             CAMSTATS.saveAsJson("./camStats.json")
-            await asyncio.sleep(30)
+
+
+            for subserv,ws in zip(["WSMOTOR" ,"WSCAMERA"],[WSMOTOR ,WSCAMERA]):
+                status = "OK" if (ws is not None) else "NOT CONNECTED"
+                log.info("%s is %s",subserv,status)
+            await asyncio.sleep(5)
 
 
 
