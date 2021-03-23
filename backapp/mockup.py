@@ -18,14 +18,34 @@ import shutil
 import imgutils
 # from backapp import imgutils
 
+
+class MsgBuff():
+    def __init__(self,maxcount):
+        self.maxcount = maxcount
+        self.content= []
+    def stack(self,data):
+        while len(self.content)>=self.maxcount:
+            self.content = self.content[1:]
+        self.content.append(data)
+
+    def saveAsJson(self,jsonName):
+        with open(jsonName,"w") as fou:
+            json.dump(self.content,fou)
+
+
 DEBUGMODE = 0
-
-
 currentImage = None
 currentUsedParams = None
 
 currentParams = None
 
+WSCAMERA = None
+WSMOTOR = None
+USERS = set()
+
+
+MOTORSTATS=MsgBuff(1000)
+CAMSTATS=MsgBuff(1000)
 
 def makeRandomImage(width, height):
     # random Pil Image
@@ -45,26 +65,21 @@ def makeRandomImage(width, height):
     return data, histData
 
 
-WSCAMERA = None
-WSMOTOR = None
-USERS = set()
-
 
 
 
 def makeMessage(msgtype,data,jdump=False):
     """
-
     {"msttype": "string",
     "data": }
-
-
     """
-    msg ={"msgtype": "imgData", "data": imgData}
+    msg ={"msgtype": msgtype, "data": data}
     if jdump:
         return json.dumps(msg)
     else:
         return msg
+
+
 
 
 async def register(websocket):
@@ -84,7 +99,7 @@ async def bcastMsg(data, msgtype):
     if len(USERS)>0:
         strSend = time.time()
         message = makeMessage(msgtype,data,jdump=True)
-        log.info("broadcasting message size %s to %s users", len(message),len(USERS))
+        log.debug("broadcasting message size %s to %s users", len(message),len(USERS))
         await asyncio.wait([user.send(message) for user in USERS])
 
         endSend = time.time()
@@ -131,8 +146,6 @@ async def handler(websocket, path):
     try:
         while True:
             rawData = await websocket.recv()
-
-
             try:
                 msg = json.loads(rawData)
                 if msg["msgtype"] == "params":
@@ -141,19 +154,37 @@ async def handler(websocket, path):
                         log.info("sending params to camera")
                         await WSCAMERA.send(rawData)
                     else:
-                        log.info("setting new params, no camera detected")
+                        log.info("setting new params but no camera detected")
                 elif msg["msgtype"] == "ctlparams":
-                    await WSMOTOR.send(rawData)
+                    # 
+                    if WSMOTOR is not None:
+                        await WSMOTOR.send(rawData)
+                    else:
+                        log.info("setting new params but no motor detected")
 
                 elif msg["msgtype"] == "srcimage":
-                    log.info("got image")
+
+                    strt = time.time()
                     decoded = base64.b64decode(msg["imageData"].encode("utf-8"))
                     currentImage = Image.open(io.BytesIO(decoded))
                     currentUsedParams = msg["usedParams"]
+
+                    log.info("image decodeTo Image dur %.2f",time.time()-strt)
+                    strt = time.time()
                     await bcastImg(currentImage, currentUsedParams)
+                    log.info("sending to all clients dur %.2f",time.time()-strt)
+
+
                 elif msg["msgtype"] == "motorInfo":
-                    #log.info("got motor info data ")
+                    MOTORSTATS.stack(msg["data"])
                     await bcastMsg(msg["data"], "motorInfo")
+
+                elif msg["msgtype"] == "camTiming":
+                    # relay camera timing to users
+                    CAMSTATS.stack(msg["data"])
+                    await bcastMsg(msg["data"], "camTiming")
+                else:
+                    log.info("message type %s ?",msg["msgtype"])
 
             except Exception as e:
                 log.exception("bad message! %s", e)
@@ -169,11 +200,14 @@ async def handler(websocket, path):
         if "camera" in path:
             log.warning("no camera around :(")
             WSCAMERA = None
+        elif "motor" in path:
+            log.warning("motor connection close")
+            WSMOTOR = None
         else:
             await unregister(websocket)
 
 
-async def bgjob():
+async def bgjob(diskList):
     log = logging.getLogger("bgjob")
     global currentParams
     sleepdur = 1
@@ -202,22 +236,42 @@ async def bgjob():
             imgStats = {"histData": histData, }
             await sendImageStats(imgStats)
         else:
+            
+            await scanDiskUsage(diskList)
 
-            total, used, free = [float(_) / (2 ** 30) for _ in shutil.disk_usage("/")]
-            log.info("disk info %s %s %s", total, used, free)
-            await bcastMsg({"total": total, "used": used, "free": free}, "sysInfo")
+            log.info("web client connected %s",len(USERS))
+            
+            MOTORSTATS.saveAsJson("./motorstats.json")
+            CAMSTATS.saveAsJson("./camStats.json")
             await asyncio.sleep(30)
 
 
+
+
+async def scanDiskUsage(diskList):
+    log = logging.getLogger("diskinfo")
+    # scan disk usage
+    for diskIdent in diskList:
+
+        total, used, free = [float(_) / (2 ** 30) for _ in shutil.disk_usage(diskIdent)]
+        usedpct = (used/total)*100
+        log.info("in %s using %.1f %% of %.1f Go ; %.1f Go free", diskIdent , usedpct , total,free)
+
+        await bcastMsg({"total": total, "used": used, "usedpct":usedpct, "free": free,"disk":diskIdent}, "sysInfo")
+
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
 
     WSHOST = "0.0.0.0"
     WSPORT = 8765
-
+    
+    DISKLIST = ["/","/dev/shm"]
+    
+    loggingLevel = logging.INFO # 20; ERROR is 40 
+    
+    logging.basicConfig(level=loggingLevel)
     logging.info("listening at ws://%s:%s"%(WSHOST, WSPORT))
     start_server = websockets.serve(handler, WSHOST, WSPORT)
 
     asyncio.get_event_loop().run_until_complete(start_server)
-    asyncio.get_event_loop().run_until_complete(bgjob())
+    asyncio.get_event_loop().run_until_complete(bgjob(DISKLIST))
     asyncio.get_event_loop().run_forever()

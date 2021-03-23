@@ -16,6 +16,8 @@ import os
 continueLoop=False
 freshParams=None
 
+import imgutils
+from mockup import makeMessage
 serverConnection = None
 
 def cleanParams(params):
@@ -182,8 +184,6 @@ async def cameraLoop():
                                 "save_section":save_section,
                                 "fdest":fdest,
                                 "fileNameExt":fileNameExt,
-                                
-                                
                                 },
                             "msgtype":"srcimage",
                             "imageData":data})
@@ -194,9 +194,22 @@ async def cameraLoop():
                     except Exception as e:
                         log.exception("err %s",e)
                     # end sending
+                    send_dur = time.time()-strtTime
 
-                    dur = time.time()-strtTime
-                    log.info("%.2f: capture %.2f; pil %.2f;hist %.2f ;resize %.2f; save %.2f; sendl %.2f",triggerDate,capture_dur,pil_dur,hist_dur,resize_dur,save_dur,dur)
+
+                    log.info("%.2f: capture %.2f; pil %.2f;hist %.2f ;resize %.2f; save %.2f; sendl %.2f",triggerDate,capture_dur,pil_dur,hist_dur,resize_dur,save_dur,send_dur)
+                    timingData ={
+                            "triggerDate":triggerDate,
+                            "capture_dur":capture_dur,
+                            "pil_dur":pil_dur,
+                            "hist_dur":hist_dur,
+                            "resize_dur":resize_dur,
+                            "save_dur":save_dur,
+                            "send_dur":send_dur
+                            }
+                    if serverConnection :
+                        msg = makeMessage("camTiming",timingData,jdump=True)
+                        await serverConnection.send(msg)
                     await asyncio.sleep(.0001)
         except Exception as e:
             log.exception("whooops")
