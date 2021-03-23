@@ -30,7 +30,7 @@ def cleanParams(params):
             "expomode": "off",
             "shootresol":{ "width":480,"height":368},
             "dispresol":{ "width":480,"height":368},
-            "capture_format":"rgb",
+            "capture_format":"rgb", # or yuv
             "exposure_compensation":0,
 
             "brightness":50,
@@ -53,7 +53,8 @@ async def cameraLoop():
     global continueLoop
     global freshParams
     await asyncio.sleep(1)
-
+    
+    # initiate imgSaver
     imgSaver = imgutils.ImgSaver("./savedimgs/")
     while True: 
         try:
@@ -61,16 +62,12 @@ async def cameraLoop():
             
             params = cleanParams(freshParams)
             shootresol = params["shootresol"]
-
-
             strtResolution = (shootresol["width"],shootresol["height"])
 
-
-
-            log.info("OpeningCamera %s"%(strtResolution,))
+            log.info("OpeningCamera at resol %s",(strtResolution,))
             with PiCamera(resolution=strtResolution, framerate_range=(0.1,30)) as camera:
                 log.info("got camera")
-                # Set ISO to the desired value
+                
                 continueLoop=True
                 while continueLoop:
                     params = cleanParams(freshParams)
@@ -83,22 +80,28 @@ async def cameraLoop():
                     
                     capture_format = params["capture_format"]
 
+                    # setting camera config
+                    camsetting_start = time.time()
+
+
                     camera.iso = params["isovalue"]
                     camera.brightness = params["brightness"] 
                     camera.contrast = params["contrast"] 
-                    #camera.analog_gain=1.0 
+                    # camera.analog_gain=1.0 
                     camera.exposure_mode = params["expomode"]
                     camera.exposure_compensation = params["exposure_compensation"]
                     camera.saturation = params["saturation"]
                     
                     camera.shutter_speed =params["shutterSpeed"]
                     
-                    g=(params["redgain"],params["bluegain"])
                     
                     log.info("setting awb_mode off")
                     camera.awb_mode = 'off'
+                    
+                    g=(params["redgain"],params["bluegain"])
                     camera.awb_gains = g
                
+                    camsetting_dur = time.time()-camsetting_start
 
 
 
@@ -144,62 +147,69 @@ async def cameraLoop():
                     imageDisplay = image.resize(dispresol)
                     resize_dur = time.time()-strtTime
                     
-                    # save
+                    # save original image 
                     strtTime = time.time()
                     save_format = params["save_format"]
                     save_section = params["save_section"]
                     save_subsection = params["save_subsection"]
 
-                    fdest,fileNameExt = imgSaver.save(image,save_format,save_section,save_subsection,triggerDate)
+                    fdest,fileNameExt = imgSaver.save(image,
+                            save_format,save_section,save_subsection,triggerDate)
 
                     log.info("saving to %s %s",fdest,fileNameExt)
                     save_dur = time.time()-strtTime
                     
+
+                    # publish image to server
                     strtTime = time.time()
-                    try:
-                        data = imgutils.pilimTobase64Jpg(imageDisplay)
-                        msg=json.dumps({
-                            "usedParams":{
-                                "triggerDate": triggerDate,
-                                "gains" :[float(_) for _ in camera.awb_gains],
-                                "analog_gain":float(camera.analog_gain), 
-                                "iso" :camera.iso,
-                                "brightness":camera.brightness,
-                                "saturation":camera.saturation,
-                                "contrast":camera.contrast,
-                                "exposure_compensation":camera.exposure_compensation,
-                                "resolution":list(strtResolution),
-                                "imageSize":image.size,
-                                "shutterSpeed":camera.shutter_speed,
-                                "exposure_speed":camera.exposure_speed,
-                                "exposure_mode":camera.exposure_mode,
-                                "awb_mode":camera.awb_mode,
-                                "capture_dur":capture_dur,
-                                "pil_dur":pil_dur,
-                                "hist_dur":hist_dur,
-                                "resize_dur":resize_dur,
-                                "save_dur":save_dur,
-                                "capture_format":capture_format,
-                                "save_format":save_format,
-                                "save_section":save_section,
-                                "fdest":fdest,
-                                "fileNameExt":fileNameExt,
-                                },
-                            "msgtype":"srcimage",
-                            "imageData":data})
-                        if serverConnection :
+                    if serverConnection :
+                        try:
+                            data = imgutils.pilimTobase64Jpg(imageDisplay)
+                            msg=json.dumps({
+                                "usedParams":{
+                                    "triggerDate": triggerDate,
+                                    "gains" :[float(_) for _ in camera.awb_gains],
+                                    "analog_gain":float(camera.analog_gain), 
+                                    "iso" :camera.iso,
+                                    "brightness":camera.brightness,
+                                    "saturation":camera.saturation,
+                                    "contrast":camera.contrast,
+                                    "exposure_compensation":camera.exposure_compensation,
+                                    "resolution":list(strtResolution),
+                                    "imageSize":image.size,
+                                    "shutterSpeed":camera.shutter_speed,
+                                    "exposure_speed":camera.exposure_speed,
+                                    "exposure_mode":camera.exposure_mode,
+                                    "awb_mode":camera.awb_mode,
+                                    "capture_dur":capture_dur,
+                                    "pil_dur":pil_dur,
+                                    "hist_dur":hist_dur,
+                                    "resize_dur":resize_dur,
+                                    "save_dur":save_dur,
+                                    "capture_format":capture_format,
+                                    "save_format":save_format,
+                                    "save_section":save_section,
+                                    "fdest":fdest,
+                                    "fileNameExt":fileNameExt,
+                                    },
+                                "msgtype":"srcimage",
+                                "imageData":data})
                             await serverConnection.send(msg)
-                        else:
-                            log.info("no server")
-                    except Exception as e:
-                        log.exception("err %s",e)
+                        except Exception as e:
+                            log.exception("err %s",e)
+                    else:
+                        log.info("no server")
                     # end sending
                     send_dur = time.time()-strtTime
 
 
-                    log.info("%.2f: capture %.2f; pil %.2f;hist %.2f ;resize %.2f; save %.2f; sendl %.2f",triggerDate,capture_dur,pil_dur,hist_dur,resize_dur,save_dur,send_dur)
+                    #log.info("%.2f: capture %.2f; pil %.2f;hist %.2f ;resize %.2f; save %.2f; sendl %.2f",
+                    #        triggerDate,capture_dur,pil_dur,hist_dur,resize_dur,save_dur,send_dur)
+
+
                     timingData ={
                             "triggerDate":triggerDate,
+                            "camsetting_dur":camsetting_dur,
                             "capture_dur":capture_dur,
                             "pil_dur":pil_dur,
                             "hist_dur":hist_dur,
@@ -207,10 +217,21 @@ async def cameraLoop():
                             "save_dur":save_dur,
                             "send_dur":send_dur
                             }
+
+                    msg = ",".join(["%s: %.2f"%(k,timingData[k]) for k in sorted(timingData.keys()) if "dur" in k])
+                    log.info("timing info %s ",msg)
+                    
                     if serverConnection :
                         msg = makeMessage("camTiming",timingData,jdump=True)
                         await serverConnection.send(msg)
                     await asyncio.sleep(.0001)
+                # end while 
+                log.info("ending capture loop, camera will be reopened")
+
+            #end with camera
+            #no camera here
+
+            log.info("camera closed")
         except Exception as e:
             log.exception("whooops")
             await asyncio.sleep(1)

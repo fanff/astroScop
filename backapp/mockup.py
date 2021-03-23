@@ -168,6 +168,7 @@ async def handler(websocket, path):
                     decoded = base64.b64decode(msg["imageData"].encode("utf-8"))
                     currentImage = Image.open(io.BytesIO(decoded))
                     currentUsedParams = msg["usedParams"]
+                    # TODO keep usedParams in a stack 
 
                     log.info("image decodeTo Image dur %.2f",time.time()-strt)
                     strt = time.time()
