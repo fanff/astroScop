@@ -15,3 +15,5 @@ todolist
 - [ ] locate bright pixels 
 - [ ] monitor image stats (brightness, size, weight etc..)
 
+- [ ] benchmark image writing speed
+
