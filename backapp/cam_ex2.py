@@ -5,8 +5,7 @@ import logging
 from time import sleep
 from picamera import PiCamera
 import time
-import imgutils
-#pports 1080p @ 30fps, 720p @ 60fps and 640x480p 60/90 Recording
+
 import logging
 from io import BytesIO
 from PIL import Image
@@ -17,7 +16,7 @@ continueLoop=False
 freshParams=None
 
 import imgutils
-from mockup import makeMessage
+from rootserver import makeMessage
 serverConnection = None
 
 def cleanParams(params):
@@ -144,7 +143,7 @@ async def cameraLoop():
 
                     log.info("resizing")
                     strtTime = time.time()
-                    imageDisplay = image.resize(dispresol)
+                    imageDisplay = imgutils.resizeImage(dispresol)
                     resize_dur = time.time()-strtTime
                     
                     # save original image 

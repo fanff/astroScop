@@ -179,6 +179,7 @@ void checkSerial(){
       }   
       else if (paramName == 'T'){  
         target_speed = u.fval;
+
       }
       
     }
