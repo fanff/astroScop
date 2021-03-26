@@ -121,14 +121,26 @@ def makePilIMgs(resol=(100,100)):
     im = Image.fromarray(arr,'RGB')
     return im
 
-def resizeImage(image:Image,newresol,
-                resample=PIL.Image.NEAREST,reducing_gap=1.0):
-    """
-    BICUBIC
-    NEAREST
-    """
-    return image.resize(newresol,resample=resample,
-                        reducing_gap=reducing_gap)
+
+if int(PIL.Image.__version__[0])<=5:
+    def resizeImage(image:Image,newresol,
+                    resample=PIL.Image.NEAREST,reducing_gap=1.0):
+        """
+        BICUBIC
+        NEAREST
+        """
+        return image.resize(newresol,resample=resample)
+
+else:
+
+    def resizeImage(image:Image,newresol,
+                    resample=PIL.Image.NEAREST,reducing_gap=1.0):
+        """
+        BICUBIC
+        NEAREST
+        """
+        return image.resize(newresol,resample=resample,
+                            reducing_gap=reducing_gap)
 
 
 
