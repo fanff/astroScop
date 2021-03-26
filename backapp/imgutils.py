@@ -1,3 +1,4 @@
+import PIL
 import cv2
 
 import numpy as np
@@ -14,7 +15,9 @@ class ImgSaver():
         self.prefix = prefix
     
     def fileNameExt(self,save_format,save_section,save_subsection,triggerDate):
-        
+        """
+        destfolder +
+        file name with extentions"""
         fileName = "img_%.6f"%triggerDate
         fileName=fileName.replace(".","_")
         
@@ -28,24 +31,26 @@ class ImgSaver():
             fdest = os.path.join(self.prefix,save_section)
 
         return fdest,fileNameExt
-    def save(self,img,save_format,save_section,save_subsection,triggerDate):
+
+
+    def save(self,img,save_format,save_section,
+             save_subsection,triggerDate):
         strtTime = time.time()
 
         fileName = "img_%.6f"%triggerDate
         fileName=fileName.replace(".","_")
         if save_format in ["tiff","jpg","bmp"]:
             
-            fdest,fileNameExt = self.fileNameExt(save_format,save_section,save_subsection,triggerDate)
+            fdest,filenameExt = self.fileNameExt(save_format,save_section,save_subsection,triggerDate)
             os.makedirs(fdest,exist_ok=True)
-            fileDest = os.path.join(fdest,fileNameExt)
+            fileDest = os.path.join(fdest,filenameExt)
             img.save(fileDest)
-            
-            return fdest,fileNameExt
+            return fdest,filenameExt
         else:
             fdest="none"
-            fileNameExt="none"
+            filenameExt="none"
 
-            return fdest,fileNameExt
+            return fdest,filenameExt
 
 
         save_dur = time.time()-strtTime
@@ -80,7 +85,11 @@ def yuvbytesToRgb(yuvbytes,width,height):
     RGB = YUV.dot(M.T).clip(0, 255).astype(np.uint8)
 
     return RGB
+
 def pilimTobase64Jpg(pilim):
+    """
+
+    """
     # convert Pil to JPG data
     b = io.BytesIO()
     pilim.save(b, format="JPEG")
@@ -104,10 +113,23 @@ def colorHist(pilim):
         features.extend(hist.reshape(1,256).tolist())
     return features
 
-def makePilIMgs():
-    arr = np.random.randint(0,255,(100,100,3))
+def makePilIMgs(resol=(100,100)):
+    """
+    make image from random numbers
+    """
+    arr = np.random.randint(0,255,(resol[0],resol[1],3))
     im = Image.fromarray(arr,'RGB')
     return im
+
+def resizeImage(image:Image,newresol,
+                resample=PIL.Image.NEAREST,reducing_gap=1.0):
+    """
+    BICUBIC
+    NEAREST
+    """
+    return image.resize(newresol,resample=resample,
+                        reducing_gap=reducing_gap)
+
 
 
 
