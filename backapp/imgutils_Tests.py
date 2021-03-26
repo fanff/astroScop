@@ -170,10 +170,58 @@ class TC_bench_SaveImage(unittest.TestCase):
 
             print("for %s  : "%(realimgname))
             print(dfs)
+        rmtree("./a")
 
 
+    def test_2_realImages_inshm(self):
+        print("writes in ram" % PIL.Image.__version__)
+        rmtree("/dev/shm/a", ignore_errors=True)
+        time.sleep(1)
 
-        #rmtree("./a")
+        saver = ImgSaver("/dev/shm/")
+
+        # source images
+        realimagesNames = ["moon1.jpg", "moon2.jpg", "mars1.png"]
+
+        realimages = [PIL.Image.open("testimgs/%s" % (_,)) for _ in realimagesNames]
+        # resols
+        srcResols = [(1280, 720), (3296, 2464)]
+
+        expcount = 10
+        res = []
+
+        save_formats = ["tiff", "jpg", "bmp"]
+
+        for realimgname, realimg in zip(realimagesNames, realimages):
+
+            for srcResol in srcResols:
+                srcimg = resizeImage(realimg, srcResol)
+                srcimgs = [srcimg for i in range(expcount)]
+                datesrcs = list(range(expcount))
+
+                srcPixCount = srcResol[0] * srcResol[1]
+                for save_format in save_formats:
+
+                    for srcimg, dt in zip(srcimgs, datesrcs):
+                        strt = time.time()
+                        saver.save(srcimg, save_format, "a", str(srcPixCount), dt)
+                        dur = time.time() - strt
+
+                        res.append([
+                            dur, srcResol, srcPixCount, save_format
+                        ])
+                        time.sleep(.2)
+
+            cols = ["dur", "srcResol", "srcPixCount", "save_format"]
+            df = pd.DataFrame(res, columns=cols)
+            df["pixspeed"] = df["srcPixCount"] / df["dur"]
+
+            dfs = df.groupby(["save_format", "srcPixCount"]).mean()
+
+            print("in ram for %s  : " % (realimgname))
+            print(dfs)
+
+    rmtree("/dev/shm/a")
 
 
 
