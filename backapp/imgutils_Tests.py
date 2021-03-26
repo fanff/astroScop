@@ -174,7 +174,7 @@ class TC_bench_SaveImage(unittest.TestCase):
 
 
     def test_2_realImages_inshm(self):
-        print("writes in ram" % PIL.Image.__version__)
+        print("writes in ram" )
         rmtree("/dev/shm/a", ignore_errors=True)
         time.sleep(1)
 
@@ -221,7 +221,7 @@ class TC_bench_SaveImage(unittest.TestCase):
             print("in ram for %s  : " % (realimgname))
             print(dfs)
 
-    rmtree("/dev/shm/a")
+        rmtree("/dev/shm/a")
 
 
 
