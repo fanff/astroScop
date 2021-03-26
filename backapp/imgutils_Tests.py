@@ -79,7 +79,7 @@ class TC_bench_resizeImage(unittest.TestCase):
 
 
 class TC_bench_SaveImage(unittest.TestCase):
-    def test_1(self):
+    def test_1_randomImages(self):
         saver = ImgSaver("./")
         srcResols = [(1280, 720),(3296, 2464)]
 
@@ -108,7 +108,7 @@ class TC_bench_SaveImage(unittest.TestCase):
                     res.append([
                         dur, srcResol, srcPixCount, save_format
                         ])
-
+                    time.sleep(.1)
 
         cols = ["dur", "srcResol", "srcPixCount", "save_format"]
         df = pd.DataFrame(res, columns=cols)
@@ -118,6 +118,63 @@ class TC_bench_SaveImage(unittest.TestCase):
         print(df.groupby(["save_format","srcPixCount"]).mean())
 
         rmtree("./a")
+
+    def test_2_realImages(self):
+        print("version : %s"%PIL.Image.__version__)
+        rmtree("./a",ignore_errors=True)
+        time.sleep(1)
+
+
+        saver = ImgSaver("./")
+
+        #source images
+        realimagesNames = ["moon1.jpg","moon2.jpg","mars1.png"]
+
+        realimages = [PIL.Image.open("testimgs/%s"%(_,)) for _ in realimagesNames]
+        # resols
+        srcResols = [(1280, 720), (3296, 2464)]
+
+        expcount = 10
+        res = []
+
+        save_formats = ["tiff", "jpg", "bmp"]
+
+
+
+        for realimgname , realimg in zip(realimagesNames,realimages):
+
+
+            for srcResol in srcResols:
+                srcimg = resizeImage(realimg,srcResol)
+                srcimgs = [srcimg for i in range(expcount)]
+                datesrcs = list(range(expcount))
+
+                srcPixCount = srcResol[0] * srcResol[1]
+                for save_format in save_formats:
+
+                    for srcimg, dt in zip(srcimgs, datesrcs):
+                        strt = time.time()
+                        saver.save(srcimg, save_format, "a", str(srcPixCount), dt)
+                        dur = time.time() - strt
+
+                        res.append([
+                            dur, srcResol, srcPixCount, save_format
+                        ])
+                        time.sleep(.2)
+
+            cols = ["dur", "srcResol", "srcPixCount", "save_format"]
+            df = pd.DataFrame(res, columns=cols)
+            df["pixspeed"] = df["srcPixCount"] / df["dur"]
+
+            dfs = df.groupby(["save_format", "srcPixCount"]).mean()
+
+            print("for %s  : "%(realimgname))
+            print(dfs)
+
+
+
+        #rmtree("./a")
+
 
 
 if __name__ == '__main__':
