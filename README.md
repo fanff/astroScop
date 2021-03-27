@@ -2,7 +2,7 @@
 
 todolist 
 
-- [ ] keepstats on image params
+- [x] keepstats on image params
 - [ ] display client connected and service status
 
 
