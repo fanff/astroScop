@@ -112,7 +112,7 @@ async def cameraLoop():
 
                     log.info("capture start capture_format:%s",capture_format)
                     triggerDate = time.time()
-                    camera.capture(stream,format=capture_format)
+                    camera.capture(stream,format=capture_format,use_video_port=False)
                 
                     capture_dur = time.time()-triggerDate
                     
@@ -160,37 +160,39 @@ async def cameraLoop():
                     
 
                     # publish image to server
+                    usedParams = {
+                        "triggerDate": triggerDate,
+                        "gains": [float(_) for _ in camera.awb_gains],
+                        "analog_gain": float(camera.analog_gain),
+                        "iso": camera.iso,
+                        "brightness": camera.brightness,
+                        "saturation": camera.saturation,
+                        "contrast": camera.contrast,
+                        "exposure_compensation": camera.exposure_compensation,
+                        "resolution": list(strtResolution),
+                        "imageSize": image.size,
+                        "shutterSpeed": camera.shutter_speed,
+                        "exposure_speed": camera.exposure_speed,
+                        "exposure_mode": camera.exposure_mode,
+                        "awb_mode": camera.awb_mode,
+                        "capture_dur": capture_dur,
+                        "pil_dur": pil_dur,
+                        "hist_dur": hist_dur,
+                        "resize_dur": resize_dur,
+                        "save_dur": save_dur,
+                        "capture_format": capture_format,
+                        "save_format": save_format,
+                        "save_section": save_section,
+                        "fdest": fdest,
+                        "fileNameExt": fileNameExt,
+                    }
+
                     strtTime = time.time()
                     if serverConnection :
                         try:
                             data = imgutils.pilimTobase64Jpg(imageDisplay)
                             msg=json.dumps({
-                                "usedParams":{
-                                    "triggerDate": triggerDate,
-                                    "gains" :[float(_) for _ in camera.awb_gains],
-                                    "analog_gain":float(camera.analog_gain), 
-                                    "iso" :camera.iso,
-                                    "brightness":camera.brightness,
-                                    "saturation":camera.saturation,
-                                    "contrast":camera.contrast,
-                                    "exposure_compensation":camera.exposure_compensation,
-                                    "resolution":list(strtResolution),
-                                    "imageSize":image.size,
-                                    "shutterSpeed":camera.shutter_speed,
-                                    "exposure_speed":camera.exposure_speed,
-                                    "exposure_mode":camera.exposure_mode,
-                                    "awb_mode":camera.awb_mode,
-                                    "capture_dur":capture_dur,
-                                    "pil_dur":pil_dur,
-                                    "hist_dur":hist_dur,
-                                    "resize_dur":resize_dur,
-                                    "save_dur":save_dur,
-                                    "capture_format":capture_format,
-                                    "save_format":save_format,
-                                    "save_section":save_section,
-                                    "fdest":fdest,
-                                    "fileNameExt":fileNameExt,
-                                    },
+                                "usedParams":usedParams,
                                 "msgtype":"srcimage",
                                 "imageData":data})
                             await serverConnection.send(msg)
@@ -201,11 +203,7 @@ async def cameraLoop():
                     # end sending
                     send_dur = time.time()-strtTime
 
-
-                    #log.info("%.2f: capture %.2f; pil %.2f;hist %.2f ;resize %.2f; save %.2f; sendl %.2f",
-                    #        triggerDate,capture_dur,pil_dur,hist_dur,resize_dur,save_dur,send_dur)
-
-
+                    # now send timing data
                     timingData ={
                             "triggerDate":triggerDate,
                             "camsetting_dur":camsetting_dur,
@@ -214,7 +212,8 @@ async def cameraLoop():
                             "hist_dur":hist_dur,
                             "resize_dur":resize_dur,
                             "save_dur":save_dur,
-                            "send_dur":send_dur
+                            "send_dur":send_dur,
+                            "usedParams":usedParams
                             }
 
                     msg = ",".join(["%s: %.2f"%(k,timingData[k]) for k in sorted(timingData.keys()) if "dur" in k])
