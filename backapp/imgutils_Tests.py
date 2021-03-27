@@ -1,3 +1,4 @@
+import os
 import unittest
 import time
 from shutil import rmtree
@@ -5,6 +6,20 @@ from shutil import rmtree
 import PIL
 import pandas as pd
 from imgutils import makePilIMgs, resizeImage, ImgSaver
+import numpy as np
+
+
+import matplotlib.pyplot as plt
+
+def makeStatpng(df,fname,title):
+    plt.ioff()
+    fig, axes= plt.subplots(2,1,figsize=(8,5*2))
+
+    df.boxplot(column="dur", by=["srcPixCount" ,"save_format"],ax=axes[0])
+    df.boxplot(column="pixspeed", by=["save_format"],ax=axes[1])
+    fig.suptitle(title)
+    fig.savefig(fname)
+
 
 
 class TC_bench_resizeImage(unittest.TestCase):
@@ -85,7 +100,7 @@ class TC_bench_SaveImage(unittest.TestCase):
 
 
 
-        expcount = 30
+        expcount = 10
         res = []
 
 
@@ -112,7 +127,9 @@ class TC_bench_SaveImage(unittest.TestCase):
 
         cols = ["dur", "srcResol", "srcPixCount", "save_format"]
         df = pd.DataFrame(res, columns=cols)
-        df["pixspeed"]= df["srcPixCount"]/df["dur"]
+        df["pixspeed"] = (df["srcPixCount"] / df["dur"]) / 10 ** 6
+        df.to_pickle("./save.df")
+        makeStatpng(df, "fakeinlocal.png", "fake in local")
 
 
         print(df.groupby(["save_format","srcPixCount"]).mean())
@@ -120,6 +137,7 @@ class TC_bench_SaveImage(unittest.TestCase):
         rmtree("./a")
 
     def test_2_realImages(self):
+
         print("version : %s"%PIL.Image.__version__)
         rmtree("./a",ignore_errors=True)
         time.sleep(1)
@@ -142,8 +160,6 @@ class TC_bench_SaveImage(unittest.TestCase):
 
 
         for realimgname , realimg in zip(realimagesNames,realimages):
-
-
             for srcResol in srcResols:
                 srcimg = resizeImage(realimg,srcResol)
                 srcimgs = [srcimg for i in range(expcount)]
@@ -157,24 +173,27 @@ class TC_bench_SaveImage(unittest.TestCase):
                         saver.save(srcimg, save_format, "a", str(srcPixCount), dt)
                         dur = time.time() - strt
 
+
+
                         res.append([
-                            dur, srcResol, srcPixCount, save_format
+                            dur, srcResol, srcPixCount, save_format,realimgname
                         ])
                         time.sleep(.2)
 
-            cols = ["dur", "srcResol", "srcPixCount", "save_format"]
-            df = pd.DataFrame(res, columns=cols)
-            df["pixspeed"] = df["srcPixCount"] / df["dur"]
+        cols = ["dur", "srcResol", "srcPixCount", "save_format","realimgname"]
+        df = pd.DataFrame(res, columns=cols)
+        df["pixspeed"] = (df["srcPixCount"] / df["dur"])/10**6
+        df.to_pickle("./save.df")
+        makeStatpng(df, "realinlocal.png", "real_in /a")
 
-            dfs = df.groupby(["save_format", "srcPixCount"]).mean()
-
-            print("for %s  : "%(realimgname))
-            print(dfs)
-        rmtree("./a")
+        rmtree("./a",ignore_errors=True)
 
 
     def test_2_realImages_inshm(self):
         print("writes in ram" % PIL.Image.__version__)
+        if not os.path.exists("/dev/shm/"):
+            return
+
         rmtree("/dev/shm/a", ignore_errors=True)
         time.sleep(1)
 
@@ -208,20 +227,17 @@ class TC_bench_SaveImage(unittest.TestCase):
                         dur = time.time() - strt
 
                         res.append([
-                            dur, srcResol, srcPixCount, save_format
+                            dur, srcResol, srcPixCount, save_format,realimgname
                         ])
                         time.sleep(.2)
 
-            cols = ["dur", "srcResol", "srcPixCount", "save_format"]
-            df = pd.DataFrame(res, columns=cols)
-            df["pixspeed"] = df["srcPixCount"] / df["dur"]
+        cols = ["dur", "srcResol", "srcPixCount", "save_format","realimgname"]
+        df = pd.DataFrame(res, columns=cols)
+        df["pixspeed"] = (df["srcPixCount"] / df["dur"]) / 10 ** 6
+        df.to_pickle("./save.df")
+        makeStatpng(df, "realinshm.png", "real_in shm")
 
-            dfs = df.groupby(["save_format", "srcPixCount"]).mean()
-
-            print("in ram for %s  : " % (realimgname))
-            print(dfs)
-
-    rmtree("/dev/shm/a")
+        rmtree("/dev/shm/a")
 
 
 
