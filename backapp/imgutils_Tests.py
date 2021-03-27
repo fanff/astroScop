@@ -1,4 +1,3 @@
-import os
 import unittest
 import time
 from shutil import rmtree
@@ -100,7 +99,7 @@ class TC_bench_SaveImage(unittest.TestCase):
 
 
 
-        expcount = 10
+        expcount = 30
         res = []
 
 
@@ -160,6 +159,8 @@ class TC_bench_SaveImage(unittest.TestCase):
 
 
         for realimgname , realimg in zip(realimagesNames,realimages):
+
+
             for srcResol in srcResols:
                 srcimg = resizeImage(realimg,srcResol)
                 srcimgs = [srcimg for i in range(expcount)]
@@ -172,8 +173,6 @@ class TC_bench_SaveImage(unittest.TestCase):
                         strt = time.time()
                         saver.save(srcimg, save_format, "a", str(srcPixCount), dt)
                         dur = time.time() - strt
-
-
 
                         res.append([
                             dur, srcResol, srcPixCount, save_format,realimgname
