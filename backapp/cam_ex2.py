@@ -226,7 +226,7 @@ async def cameraLoop():
                             }
 
                     msg = ",".join(["%s: %.2f"%(k,timingData[k]) for k in sorted(timingData.keys()) if "dur" in k])
-                    log.info("timing info %s ",msg)
+                    log.info("timing info %s , %s in buff",msg,len(IMGBUFF.content))
                     
                     if serverConnection :
                         msg = makeMessage("camTiming",timingData,jdump=True)
