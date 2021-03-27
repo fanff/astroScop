@@ -151,7 +151,7 @@ class TC_bench_SaveImage(unittest.TestCase):
         # resols
         srcResols = [(1280, 720), (3296, 2464)]
 
-        expcount = 10
+        expcount = 30
         res = []
 
         save_formats = ["tiff", "jpg", "bmp"]
@@ -205,7 +205,7 @@ class TC_bench_SaveImage(unittest.TestCase):
         # resols
         srcResols = [(1280, 720), (3296, 2464)]
 
-        expcount = 10
+        expcount = 30
         res = []
 
         save_formats = ["tiff", "jpg", "bmp"]
