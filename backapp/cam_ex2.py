@@ -175,16 +175,20 @@ async def cameraLoop():
                         "exposure_speed": camera.exposure_speed,
                         "exposure_mode": camera.exposure_mode,
                         "awb_mode": camera.awb_mode,
-                        "capture_dur": capture_dur,
-                        "pil_dur": pil_dur,
-                        "hist_dur": hist_dur,
-                        "resize_dur": resize_dur,
-                        "save_dur": save_dur,
+
                         "capture_format": capture_format,
                         "save_format": save_format,
                         "save_section": save_section,
                         "fdest": fdest,
                         "fileNameExt": fileNameExt,
+
+
+                        "camsetting_dur": camsetting_dur,
+                        "capture_dur": capture_dur,
+                        "pil_dur": pil_dur,
+                        "hist_dur": hist_dur,
+                        "resize_dur": resize_dur,
+                        "save_dur": save_dur,
                     }
 
                     strtTime = time.time()
@@ -206,12 +210,6 @@ async def cameraLoop():
                     # now send timing data
                     timingData ={
                             "triggerDate":triggerDate,
-                            "camsetting_dur":camsetting_dur,
-                            "capture_dur":capture_dur,
-                            "pil_dur":pil_dur,
-                            "hist_dur":hist_dur,
-                            "resize_dur":resize_dur,
-                            "save_dur":save_dur,
                             "send_dur":send_dur,
                             "usedParams":usedParams
                             }
