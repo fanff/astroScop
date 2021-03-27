@@ -10,12 +10,12 @@ import os
 
 import matplotlib.pyplot as plt
 
-def makeStatpng(df,fname,title):
+def makeStatpng(df,fname,title,testedCols = ["save_format"]):
     plt.ioff()
     fig, axes= plt.subplots(2,1,figsize=(8,5*2))
 
-    df.boxplot(column="dur", by=["srcPixCount" ,"save_format"],ax=axes[0])
-    df.boxplot(column="pixspeed", by=["save_format"],ax=axes[1])
+    df.boxplot(column="dur", by=["srcPixCount"]+testedCols,ax=axes[0])
+    df.boxplot(column="pixspeed", by=testedCols,ax=axes[1])
     fig.suptitle(title)
     fig.savefig(fname)
 
@@ -44,7 +44,7 @@ class TC_bench_resizeImage(unittest.TestCase):
         #srcResol = (3296,2464)
         #targtResol = (1280,720)
 
-        srcResol = (1280,720)
+        srcResol = (3296,2464)
         targtResol = (480,368)
 
 
@@ -84,12 +84,12 @@ class TC_bench_resizeImage(unittest.TestCase):
                         "modestr"]
         df = pd.DataFrame(res,columns=cols)
 
-        drr:pd.DataFrame = df[["dur","rgap","modestr"]].groupby(["rgap","modestr"]).mean()
+        df["pixspeed"] = (df["srcPixCount"] / df["dur"]) / 10 ** 6
+        df.to_pickle("./save.df")
+        makeStatpng(df, "resizeSpd.png", "resize Speed",testedCols = ["rgap","modestr"])
 
-        print(drr)
 
 
-        print(drr.loc[drr["dur"].idxmin()])
 
 
 class TC_bench_SaveImage(unittest.TestCase):
@@ -189,7 +189,7 @@ class TC_bench_SaveImage(unittest.TestCase):
 
 
     def test_2_realImages_inshm(self):
-        print("writes in ram" % PIL.Image.__version__)
+        print("writes in ram" )
         if not os.path.exists("/dev/shm/"):
             return
 
