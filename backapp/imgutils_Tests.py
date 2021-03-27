@@ -239,7 +239,7 @@ class TC_bench_SaveImage(unittest.TestCase):
         rmtree("/dev/shm/a")
 
     def test_realImages_instick(self):
-        print("writes in ram" )
+        print("writes in stick" )
         if not os.path.exists("/media/imgstick"):
             return
 
