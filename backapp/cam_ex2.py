@@ -143,7 +143,7 @@ async def cameraLoop():
 
                     log.info("resizing")
                     strtTime = time.time()
-                    imageDisplay = imgutils.resizeImage(dispresol)
+                    imageDisplay = imgutils.resizeImage(image,dispresol)
                     resize_dur = time.time()-strtTime
                     
                     # save original image 
