@@ -279,6 +279,8 @@ def scanDiskUsage(diskList):
             res.append({
                 "total": total, "used": used, "usedpct": usedpct,
                 "free": free, "disk": diskIdent})
+
+
     return res
 
 
