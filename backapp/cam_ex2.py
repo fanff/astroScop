@@ -152,10 +152,13 @@ async def cameraLoop():
                     save_section = params["save_section"]
                     save_subsection = params["save_subsection"]
 
-                    fdest,fileNameExt = imgSaver.save(image,
-                            save_format,save_section,save_subsection,triggerDate)
+                    if save_format in ["none",]:
+                        pass
+                    else:
+                        fdest,fileNameExt = imgSaver.save(image,
+                                save_format,save_section,save_subsection,triggerDate)
 
-                    log.info("saving to %s %s",fdest,fileNameExt)
+                        log.info("saving to %s %s",fdest,fileNameExt)
                     save_dur = time.time()-strtTime
                     
 
