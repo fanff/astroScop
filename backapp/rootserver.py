@@ -1,4 +1,6 @@
 import asyncio
+import os
+
 import websockets
 import time
 import numpy as np
@@ -44,8 +46,8 @@ WSMOTOR = None
 USERS = set()
 
 
-MOTORSTATS=MsgBuff(10000)
-CAMSTATS=MsgBuff(10000)
+MOTORSTATS=MsgBuff(1000)
+CAMSTATS=MsgBuff(1000)
 
 def makeRandomImage(width, height):
     # random Pil Image
@@ -84,8 +86,6 @@ def makeMessage(msgtype,data,jdump=False):
 
 async def register(websocket):
     USERS.add(websocket)
-
-
 async def unregister(websocket):
     USERS.remove(websocket)
 
@@ -136,6 +136,22 @@ async def handler(websocket, path):
 
         log.info("setting motor connection")
         WSMOTOR = websocket
+
+    elif "stats" in path:
+        log.info("pushing stats")
+        try:
+            data = scanDiskUsage(DISKLIST)
+            await websocket.send(makeMessage("sysInfo",data,jdump=True))
+
+            await websocket.send(makeMessage("motorstats", MOTORSTATS.content, jdump=True))
+            await websocket.send(makeMessage("camstats", CAMSTATS.content,  jdump=True))
+
+        except Exception as e:
+            log.info("error with stats")
+        return
+
+
+
 
     else:
         # register as a new user
@@ -208,64 +224,63 @@ async def handler(websocket, path):
             await unregister(websocket)
 
 
+
+
+
 async def bgjob(diskList):
     log = logging.getLogger("bgjob")
     global currentParams
     global WSMOTOR
     global WSCAMERA
-    sleepdur = 1
+    global USERS
+    sleepdur = 5
     while True:
+        try:
+            data= scanDiskUsage(diskList)
+            await bcastMsg(data,"sysInfo")
 
-        if DEBUGMODE:
-            log.info("current parameters %s", currentParams)
+            #MOTORSTATS.saveAsJson("./motorstats.json")
+            #CAMSTATS.saveAsJson("./camStats.json")
 
-            usedParams = copy.deepcopy(currentParams)
+            servst =serviceStatus()
 
-            triggerDate = time.time()
-            tosleep = float(usedParams["shutterSpeed"]) / (10e6)
-            await asyncio.sleep(tosleep)
-            shootresol = usedParams["shootresol"]
-            imgData, histData = makeRandomImage(shootresol["width"], shootresol["height"])
+            log.info("serviceStatus is %s", servst)
+            await asyncio.sleep(sleepdur)
+        except Exception as e:
+            log.exception("error")
+            await asyncio.sleep(sleepdur)
 
-            b64imgData = base64.b64encode(imgData).decode("utf-8")
-            log.info("img data %s %s", len(imgData), len(b64imgData))
+def serviceStatus():
+    global WSMOTOR
+    global WSCAMERA
+    global USERS
+    serviceStatus = {}
+    for subserv, ws in zip(["WSMOTOR", "WSCAMERA"], [WSMOTOR, WSCAMERA]):
+        status = "OK" if (ws is not None) else "NOT CONNECTED"
 
-            imgProps = {"usedParams": usedParams,
-                        "triggerDate": triggerDate,
-                        }
-            await sendImage(b64imgData)
-            await sendImageProps(imgProps)
+        serviceStatus[subserv] = [status, 0]
 
-            imgStats = {"histData": histData, }
-            await sendImageStats(imgStats)
-        else:
-            
-            await scanDiskUsage(diskList)
+    serviceStatus["WEBUSERS"] = ["OK", len(USERS)]
 
-            log.info("web client connected %s",len(USERS))
-            
-            MOTORSTATS.saveAsJson("./motorstats.json")
-            CAMSTATS.saveAsJson("./camStats.json")
-
-
-            for subserv,ws in zip(["WSMOTOR" ,"WSCAMERA"],[WSMOTOR ,WSCAMERA]):
-                status = "OK" if (ws is not None) else "NOT CONNECTED"
-                log.info("%s is %s",subserv,status)
-            await asyncio.sleep(5)
+    return serviceStatus
 
 
 
-
-async def scanDiskUsage(diskList):
+def scanDiskUsage(diskList):
     log = logging.getLogger("diskinfo")
     # scan disk usage
-    for diskIdent in diskList:
 
-        total, used, free = [float(_) / (2 ** 30) for _ in shutil.disk_usage(diskIdent)]
-        usedpct = (used/total)*100
-        log.info("in %s using %.1f %% of %.1f Go ; %.1f Go free", diskIdent , usedpct , total,free)
+    res = []
+    for diskIdent in diskList :
+        if os.path.exists(diskIdent):
+            total, used, free = [float(_) / (2 ** 30) for _ in shutil.disk_usage(diskIdent)]
+            usedpct = (used/total)*100
+            log.info("in %s using %.1f %% of %.1f Go ; %.1f Go free", diskIdent , usedpct , total,free)
+            res.append({
+                "total": total, "used": used, "usedpct": usedpct,
+                "free": free, "disk": diskIdent})
+    return res
 
-        await bcastMsg({"total": total, "used": used, "usedpct":usedpct, "free": free,"disk":diskIdent}, "sysInfo")
 
 if __name__ == "__main__":
 
