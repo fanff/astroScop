@@ -131,7 +131,7 @@ class TC_bench_SaveImage(unittest.TestCase):
         makeStatpng(df, "fakeinlocal.png", "fake in local")
 
 
-        print(df.groupby(["save_format","srcPixCount"]).mean())
+
 
         rmtree("./a")
 
@@ -237,6 +237,56 @@ class TC_bench_SaveImage(unittest.TestCase):
         makeStatpng(df, "realinshm.png", "real_in shm")
 
         rmtree("/dev/shm/a")
+
+    def test_realImages_instick(self):
+        print("writes in ram" )
+        if not os.path.exists("/media/imgstick"):
+            return
+
+        rmtree("/media/imgstick/a", ignore_errors=True)
+        time.sleep(1)
+
+        saver = ImgSaver("/media/imgstick/")
+
+        # source images
+        realimagesNames = ["moon1.jpg", "moon2.jpg", "mars1.png"]
+
+        realimages = [PIL.Image.open("testimgs/%s" % (_,)) for _ in realimagesNames]
+        # resols
+        srcResols = [(1280, 720), (3296, 2464)]
+
+        expcount = 30
+        res = []
+
+        save_formats = ["tiff", "jpg", "bmp"]
+
+        for realimgname, realimg in zip(realimagesNames, realimages):
+
+            for srcResol in srcResols:
+                srcimg = resizeImage(realimg, srcResol)
+                srcimgs = [srcimg for i in range(expcount)]
+                datesrcs = list(range(expcount))
+
+                srcPixCount = srcResol[0] * srcResol[1]
+                for save_format in save_formats:
+
+                    for srcimg, dt in zip(srcimgs, datesrcs):
+                        strt = time.time()
+                        saver.save(srcimg, save_format, "a", str(srcPixCount), dt)
+                        dur = time.time() - strt
+
+                        res.append([
+                            dur, srcResol, srcPixCount, save_format,realimgname
+                        ])
+                        time.sleep(.2)
+
+        cols = ["dur", "srcResol", "srcPixCount", "save_format","realimgname"]
+        df = pd.DataFrame(res, columns=cols)
+        df["pixspeed"] = (df["srcPixCount"] / df["dur"]) / 10 ** 6
+        df.to_pickle("./save.df")
+        makeStatpng(df, "realinstick.png", "real_in stick")
+
+        rmtree("/media/imgstick/a")
 
 
 
