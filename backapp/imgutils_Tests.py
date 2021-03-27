@@ -6,7 +6,7 @@ import PIL
 import pandas as pd
 from imgutils import makePilIMgs, resizeImage, ImgSaver
 import numpy as np
-
+import os
 
 import matplotlib.pyplot as plt
 
