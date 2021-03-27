@@ -30,6 +30,11 @@ class MsgBuff():
             self.content = self.content[1:]
         self.content.append(data)
 
+
+    def pop(self):
+        poped = self.content[0]
+        self.content = self.content[1:]
+        return poped
     def saveAsJson(self,jsonName):
         with open(jsonName,"w") as fou:
             json.dump(self.content,fou)

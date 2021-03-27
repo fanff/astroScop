@@ -1,4 +1,6 @@
 import asyncio
+import concurrent
+
 import websockets
 import logging
 
@@ -16,8 +18,15 @@ continueLoop=False
 freshParams=None
 
 import imgutils
-from rootserver import makeMessage
+from rootserver import makeMessage, MsgBuff
+
 serverConnection = None
+
+
+
+
+IMGBUFF = MsgBuff(20)
+
 
 def cleanParams(params):
     if params == None :
@@ -53,8 +62,7 @@ async def cameraLoop():
     global freshParams
     await asyncio.sleep(1)
     
-    # initiate imgSaver
-    imgSaver = imgutils.ImgSaver("./savedimgs/")
+
     while True: 
         try:
             log = logging.getLogger("cameraLoop")
@@ -155,10 +163,9 @@ async def cameraLoop():
                     if save_format in ["none",]:
                         pass
                     else:
-                        fdest,fileNameExt = imgSaver.save(image,
-                                save_format,save_section,save_subsection,triggerDate)
+                        IMGBUFF.stack((image,
+                                save_format,save_section,save_subsection,triggerDate))
 
-                        log.info("saving to %s %s",fdest,fileNameExt)
                     save_dur = time.time()-strtTime
                     
 
@@ -182,8 +189,6 @@ async def cameraLoop():
                         "capture_format": capture_format,
                         "save_format": save_format,
                         "save_section": save_section,
-                        "fdest": fdest,
-                        "fileNameExt": fileNameExt,
 
 
                         "camsetting_dur": camsetting_dur,
@@ -213,6 +218,7 @@ async def cameraLoop():
                     # now send timing data
                     timingData ={
                             "triggerDate":triggerDate,
+                            "imgbuffcount" : len(IMGBUFF.content),
                             "send_dur":send_dur,
                             "usedParams":usedParams
                             }
@@ -236,7 +242,7 @@ async def cameraLoop():
             await asyncio.sleep(1)
 
 
-async def hello(uri):
+async def wsclient(uri):
 
     global serverConnection 
     global freshParams 
@@ -271,13 +277,41 @@ async def hello(uri):
 async def bgjob():
     log = logging.getLogger("bgjob")
     sleepdur = 1
+
+    # initiate imgSaver
+    imgSaver = imgutils.ImgSaver("./savedimgs/")
     while True:
         log.info("bgjob")
-        await asyncio.sleep(sleepdur)
+
+        if len(IMGBUFF.content)>0:
+            imgToWrite,save_format, save_section, save_subsection, triggerDate = IMGBUFF.pop()
+            loop = asyncio.get_running_loop()
+
+            def blocking_io():
+                fdest, fileNameExt = imgSaver.save(imgToWrite,
+                                                   save_format, save_section, save_subsection, triggerDate)
+
+                log.info("saving to %s %s", fdest, fileNameExt)
+                return fdest, fileNameExt
+
+
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                result = await loop.run_in_executor(
+                    pool, blocking_io)
+
+
+
+
+        else:
+            # wait for image
+            await asyncio.sleep(sleepdur)
 
 async def main():
-    task1 = asyncio.create_task( hello('ws://localhost:8765/camera'))
+
+
+    task1 = asyncio.create_task(wsclient('ws://localhost:8765/camera'))
     task2 = asyncio.create_task( cameraLoop())
+    task3 = asyncio.create_task( bgjob())
     
     await task1
     await task2
