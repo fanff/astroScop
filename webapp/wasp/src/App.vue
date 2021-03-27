@@ -19,7 +19,6 @@
                 <button v-on:click="onshowmotorstats()">MotorStats</button> 
                 <button v-on:click="onshowCamStats()">Caminfo</button> 
                 <button v-on:click="onshowMemStats()">MemStats</button> 
-                {{diskUsage}}
              </div>
                 
          </div>
