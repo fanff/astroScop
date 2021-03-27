@@ -5,6 +5,9 @@
          <div class="div1">
              <div>
                 
+                 <label v-if="wsconnected">
+                     connected
+                 </label>
                  <label for="wsip"></label>
                  <select name="wsip" id="cars" v-model="wsip">
                         <option v-for="x in ips" :key="x" :value="x">
@@ -14,7 +17,8 @@
                 <button v-on:click="onshowsettings()">Settings</button> 
                 <button v-on:click="onshowstats()">Stats</button> 
                 <button v-on:click="onshowmotorstats()">MotorStats</button> 
-                {{diskUsage}}
+                <button v-on:click="onshowCamStats()">Caminfo</button> 
+                <button v-on:click="onshowMemStats()">MemStats</button> 
              </div>
                 
          </div>
@@ -28,6 +32,15 @@
               <div v-show="showStats"> 
                 <imgStats v-bind:imgStats="imgStats"></imgStats>
                 <imgProps v-bind:imgProps="imgProps"></imgProps>
+              </div>
+
+              <div v-show="showCamStats"> 
+                camera info 
+                <camStats v-bind:camStats="camStats"></camStats>
+              </div>
+              <div v-show="showMemStats"> 
+                memory info 
+                <memstats v-bind:memStats="diskUsage"></memstats>
               </div>
               <div v-show="showMotorstats"> 
                 <motorStats v-bind:motorStats="motorStats"></motorStats>
@@ -48,11 +61,13 @@ import imgDisplay from './components/imgDisplay.vue'
 import imgStats from './components/imgStats.vue'
 import imgProps from './components/imgProps.vue'
 import motorStats from './components/motorStats.vue'
+import memstats from './components/memoryStats.vue'
+import camStats from './components/cameraStats.vue'
 
 export default {
   name: 'App',
   components: {
-    captureOptions,imgDisplay,imgStats, imgProps,motorStats
+    captureOptions,imgDisplay,imgStats, imgProps,motorStats,memstats,camStats
   },
   data () {
     return {
@@ -65,11 +80,13 @@ export default {
         showSettings:true,
         showStats:true,
         showMotorstats:true,
-        diskUsage:"?",
+        showCamStats:true,
+        showMemStats:true,
+        diskUsage:[],
         slidestyle:{
             backgroundColor: '#c7221c'
         },
-
+        camStats:[],
         motorStats:[]
     }
   },
@@ -87,7 +104,9 @@ export default {
             this.imgStats = data.data
           }
           else if(msgtype=="sysInfo"){
-            this.diskUsage = ((data.data.used/data.data.total)*100).toFixed(1);
+
+              //console.log("got sys info",data.data)
+            this.diskUsage = data.data;//((data.data.used/data.data.total)*100).toFixed(1);
           }
           else if(msgtype=="motorInfo"){
             while(this.motorStats.length>=100){
@@ -95,6 +114,13 @@ export default {
             }
 
             this.motorStats.push(data);
+          }else if(msgtype=="camTiming"){
+            while(this.camStats.length>=100){
+              this.camStats.shift();
+            }
+
+            this.camStats.push(data);
+              
           }else{
             console.log(data);
           }
@@ -138,6 +164,12 @@ export default {
       },
       onshowstats:function(){
         this.showStats = !this.showStats;
+      },
+      onshowCamStats:function(){
+        this.showCamStats = !this.showCamStats;
+      },
+      onshowMemStats:function(){
+        this.showMemStats = !this.showMemStats;
       },
 
   },
