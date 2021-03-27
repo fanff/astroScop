@@ -24,10 +24,7 @@ from rootserver import makeMessage, MsgBuff
 
 serverConnection = None
 
-
-
-
-IMGBUFF = MsgBuff(20)
+IMGBUFF = MsgBuff(50)
 
 
 def cleanParams(params):
@@ -277,36 +274,44 @@ async def wsclient(uri):
         await asyncio.sleep(sleepdur)
 
 async def bgjob():
-    log = logging.getLogger("bgjob")
+    log = logging.getLogger("savingTask")
     sleepdur = 1
 
     # initiate imgSaver
     imgSaver = imgutils.ImgSaver("./savedimgs/")
     while True:
         log.info("bgjob")
+        try:
+            if len(IMGBUFF.content)>0:
+                imgToWrite,save_format, save_section, save_subsection, triggerDate = IMGBUFF.pop()
+                loop = asyncio.get_running_loop()
 
-        if len(IMGBUFF.content)>0:
-            imgToWrite,save_format, save_section, save_subsection, triggerDate = IMGBUFF.pop()
-            loop = asyncio.get_running_loop()
+                def blocking_io():
+                    logth = logging.getLogger("saveinthread")
+                    try:
+                        fdest, fileNameExt = imgSaver.save(imgToWrite,
+                                                           save_format, save_section, save_subsection, triggerDate)
 
-            def blocking_io():
-                fdest, fileNameExt = imgSaver.save(imgToWrite,
-                                                   save_format, save_section, save_subsection, triggerDate)
+                        logth.info("saving to %s %s", fdest, fileNameExt)
+                    except Exception as e:
+                        logth.exception("error saving")
 
-                log.info("saving to %s %s", fdest, fileNameExt)
-                return fdest, fileNameExt
-
-
-            with concurrent.futures.ThreadPoolExecutor() as pool:
-                result = await loop.run_in_executor(
-                    pool, blocking_io)
-
-
+                    return fdest, fileNameExt
 
 
-        else:
-            # wait for image
-            await asyncio.sleep(sleepdur)
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    result = await loop.run_in_executor(
+                        pool, blocking_io)
+
+            else:
+                # wait for image
+                await asyncio.sleep(sleepdur)
+        except Exception as e:
+            log.exception("error")
+
+
+
+
 
 async def main():
 
