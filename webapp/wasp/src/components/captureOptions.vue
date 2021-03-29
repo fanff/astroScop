@@ -49,7 +49,7 @@
         :processStyle="{backgroundColor: slidestyle.backgroundColor}"
         :lineHeight="10"
         :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor ,color: 'black' }"/>
-      <VueSlideBar v-model="value2" :min=0 :max=1000 
+      <VueSlideBar v-model="value2" :min=0 :max=10000 
         :processStyle="{backgroundColor: slidestyle.backgroundColor}"
         :lineHeight="10"
         :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor,color: 'black'  }"/>
@@ -148,9 +148,8 @@ export default {
           {name:"1640x1232", width:1640,height:1232}, 
       
           {name:"1920x1080", width:1920,height:1080}, 
-          {name:"1920x1088", width:1920,height:1088}, 
-          {name:"3280x2464", width:3280,height:2464},
           {name:"3296x2464", width:3296,height:2464},
+          {name:"4056x3040", width:4056,height:3040},
       ],
       shootresol:{name:"128x64", width:128,height:64},
       dispresol: {name:"480x368", width:480,height:368},
@@ -192,7 +191,7 @@ export default {
     calcSpeed(){
         return ( this.motorSpdSlider / 10000)*4.0
     },
-    ss () { return 100*this.value2 + 100000*this.value1;},
+    ss () { return 10*this.value2 + 100000*this.value1;},
     configData () { return {
         shutterSpeed:this.ss(),
         isovalue:this.isovalue,
