@@ -28,7 +28,7 @@ freshParams=None
 
 newFreshParams = True
 
-IMGBUFF = MsgBuff(2)
+IMGBUFF = MsgBuff(50)
 
 serverConnection= None
 serverOverwhelmed = False
@@ -235,65 +235,6 @@ async def wsclient(uri):
 
 
 
-async def savingJob():
-    """
-    use the IMGBFF global object
-
-    """
-    global IMGBUFF
-    await asyncio.sleep(2)
-    log = logging.getLogger("savingTask")
-    sleepdur = .1
-
-    # initiate imgSaver
-    imgSaver = imgutils.ImgSaver("./savedimgs/")
-    while True:
-        try:
-            if len(IMGBUFF.content)>0:
-
-                a,params, triggerDate = IMGBUFF.pop()
-                
-                save_format = params["save_format"]
-                save_section = params["save_section"]
-                save_subsection = params["save_subsection"]
-
-                if save_format in ["none"]:
-                    pass
-                else:
-
-
-                    image = Image.fromarray(a)
-                    loop = asyncio.get_running_loop()
-
-                    def blocking_io():
-                        logth = logging.getLogger("saveinthread")
-
-
-                        try:
-                            fdest, fileNameExt = imgSaver.save(image,
-                                                               save_format,
-                                                               save_section, 
-                                                               save_subsection,
-                                                               triggerDate)
-
-                            logth.info("saving to %s %s", fdest, fileNameExt)
-                            return fdest, fileNameExt
-                        except Exception as e:
-                            logth.exception("error saving")
-
-                            return "None", "none"
-
-
-                    with concurrent.futures.ThreadPoolExecutor() as pool:
-                        result = await loop.run_in_executor(
-                            pool, blocking_io)
-            else:
-                # wait for image
-                await asyncio.sleep(sleepdur)
-
-        except Exception as e:
-            log.exception("error saving")
-
 async def bgjob():
     """
     use the IMGBUFF global object
@@ -366,12 +307,77 @@ async def bgjob():
             return 
         except Exception as e:
             log.exception("error")
+
+
+async def savingJob():
+    """
+    use the IMGBFF global object
+
+    """
+    global IMGBUFF
+    await asyncio.sleep(.2)
+    log = logging.getLogger("savingTask")
+    sleepdur = .1
+    # initiate imgSaver
+    imgSaver = imgutils.ImgSaver("./savedimgs/")
+    log.info("saver created ")
+    while True:
+        try:
+            if len(IMGBUFF.content)>0:
+
+                log.info("looping")
+                a,params, triggerDate = IMGBUFF.pop()
+                
+                save_format = params["save_format"]
+                save_section = params["save_section"]
+                save_subsection = params["save_subsection"]
+
+                if save_format in ["none"]:
+                    await asyncio.sleep(0.01)
+                else:
+
+                    log.info("going to save image")
+                    image = Image.fromarray(a)
+                    loop = asyncio.get_running_loop()
+
+                    def blocking_io():
+                        logth = logging.getLogger("saveinthread")
+
+
+                        try:
+                            fdest, fileNameExt = imgSaver.save(image,
+                                                               save_format,
+                                                               save_section, 
+                                                               save_subsection,
+                                                               triggerDate)
+
+                            logth.info("saving to %s %s", fdest, fileNameExt)
+                            return fdest, fileNameExt
+                        except Exception as e:
+                            logth.exception("error saving")
+
+                            return "None", "none"
+
+
+                    with concurrent.futures.ThreadPoolExecutor() as pool:
+                        result = await loop.run_in_executor(
+                            pool, blocking_io)
+                    await asyncio.sleep(sleepdur)
+            else:
+                # wait for image
+                await asyncio.sleep(sleepdur)
+
+        except Exception as e:
+            log.exception("error saving")
+            await asyncio.sleep(sleepdur)
+
+
 async def main():
 
 
     task1 = asyncio.create_task(wsclient('ws://localhost:8765/camera'))
     task2 = asyncio.create_task( cameraLoop())
-    #task4 = asyncio.create_task( savingJob())
+    task4 = asyncio.create_task( savingJob())
     task3 = asyncio.create_task( bgjob())
     
     await task1
@@ -381,7 +387,10 @@ async def main():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    formatstr = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    #formatter = logging.Formatter(formatstr)
+    logging.basicConfig(level=logging.INFO,format=formatstr)
+
     log = logging.getLogger(__name__)
     asyncio.run(main())
 
