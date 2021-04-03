@@ -2,25 +2,25 @@
   <div >
      <div v-show="usedParamsSet" class="parent">
          <div class="div1"> 
-        {{usedParams.triggerDate}}
              <ul>
-                 <li>gain: {{usedParams.gains}}</li>
-                 <li>again:{{usedParams.analog_gain}}</li>
+                 <li>{{usedParams.triggerDateStr}}</li>
+                 <li>isovalue: {{usedParams.isovalue}}</li>
+                 <li>red gain:{{usedParams.redgain}}</li>
+                 <li>blue gain:{{usedParams.bluegain}}</li>
                  <li>bright:{{usedParams.brightness}}</li>
                  <li>sat:{{usedParams.saturation}}</li>
                  <li>exposure:{{usedParams.exposure_compensation}}</li>
                  <li>contrast:{{usedParams.contrast}}</li>
-                 <li>iso: {{usedParams.iso}}</li>
+                 <li>iso: {{usedParams.isovalue}}</li>
                  <li>shutter: {{usedParams.shutterSpeed}}</li>
-                 <li>exposure: {{usedParams.exposure_speed}}</li>
              </ul>
          </div>
          <div class="div2"> 
              <ul>
-                 <li>imageSize: {{usedParams.imageSize}}</li>
-                 <li>resolution:{{usedParams.resolution}}</li>
+                 <li>shoot at: {{usedParams.shootresol.name}}</li>
+                 <li>display at:{{usedParams.dispresol.name}}</li>
                  <li>awb_mode:{{usedParams.awb_mode}}</li>
-                 <li>exposure_mode:{{usedParams.exposure_mode}}</li>
+                 <li>exposure_mode:{{usedParams.expomode}}</li>
                  <li>capture_format: {{usedParams.capture_format}}</li>
                  <li>save_format: {{usedParams.save_format}}</li>
                  <li>fdest: {{usedParams.fdest}}</li>

@@ -45,7 +45,7 @@
 
 
     <div >
-      <VueSlideBar v-model="value1" :min=0 :max=25 
+      <VueSlideBar v-model="value1" :min=0 :max=120
         :processStyle="{backgroundColor: slidestyle.backgroundColor}"
         :lineHeight="10"
         :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor ,color: 'black' }"/>
@@ -142,14 +142,18 @@ export default {
       resols:[ {name:"128x64", width:128,height:64},
             {name:"480x368", width:480,height:368},
           {name:"640x480", width:640,height:480},
-          
+                
            
           {name:"1280x720", width:1024,height:720}, 
+
+          {name:"1332x990 HQ 2bin", width:1332,height:990}, 
           {name:"1640x1232", width:1640,height:1232}, 
       
           {name:"1920x1080", width:1920,height:1080}, 
-          {name:"3296x2464", width:3296,height:2464},
-          {name:"4056x3040", width:4056,height:3040},
+          {name:"2028x1520 HQ 2bin", width:2028,height:1520},
+
+          //{name:"3296x2464", width:3296,height:2464},
+          {name:"4056x3040 HQ Nat", width:4056,height:3040},
       ],
       shootresol:{name:"128x64", width:128,height:64},
       dispresol: {name:"480x368", width:480,height:368},
