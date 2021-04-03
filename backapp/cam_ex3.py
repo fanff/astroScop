@@ -325,7 +325,6 @@ async def savingJob():
         try:
             if len(IMGBUFF.content)>0:
 
-                log.info("looping")
                 a,params, triggerDate = IMGBUFF.pop()
                 
                 save_format = params["save_format"]
