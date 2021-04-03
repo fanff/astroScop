@@ -38,11 +38,33 @@ class MyAnalyser(PiRGBAnalysis):
     def __init__(self, camera,params):
         super(MyAnalyser, self).__init__(camera)
         self.params = params
+        self.cam = camera
+
 
     def analyze(self, a):
         """
         """
-        IMGBUFF.stack((a,self.params,time.time()))
+        triggerDate = time.time()
+        g = self.cam.awb_gains 
+        usedparams = {
+                "triggerDate":triggerDate,
+            "shutterSpeed": str(self.cam.shutter_speed),
+            "isovalue": self.cam.iso,
+            "redgain":str( g[0]),
+            "bluegain": str(g[1]),
+            "expomode": self.cam.exposure_mode,
+            "shootresol":{ "name":str(a.shape) , "width":a.shape[1],"height":a.shape[0]},
+            "exposure_compensation":self.cam.exposure_compensation,
+            "brightness":self.cam.brightness,
+            "saturation":self.cam.saturation,
+            "contrast":self.cam.contrast,
+                }
+        
+
+        p = self.params.copy()
+        p.update(usedparams)
+
+        IMGBUFF.stack((a,p,triggerDate))
         
         #print("stacked , %s"%len(IMGBUFF.content))
 
@@ -94,9 +116,6 @@ async def openCamera(params):
             
             
             # Fix the camera's white-balance gains
-            camera.awb_mode = 'off'
-            g=(params["redgain"],params["bluegain"])
-            camera.awb_gains = g
 
             camera.iso = params["isovalue"]
             camera.brightness = params["brightness"] 
@@ -106,6 +125,10 @@ async def openCamera(params):
             camera.saturation = params["saturation"]
             
             camera.shutter_speed =params["shutterSpeed"]
+            
+            camera.awb_mode = 'off'
+            g=(params["redgain"],params["bluegain"])
+            camera.awb_gains = g
 
 
             with MyAnalyser(camera,params) as analyzer:
@@ -211,68 +234,34 @@ async def wsclient(uri):
 
 
 
-
-async def bgjob():
+async def savingJob():
     """
-    use the IMGBUFF global object
+    use the IMGBFF global object
 
     """
-    global serverConnection 
-    global serverOverwhelmed 
-
+    global IMGBUFF
+    await asyncio.sleep(2)
     log = logging.getLogger("savingTask")
     sleepdur = .1
-    
-    
-    
+
     # initiate imgSaver
     imgSaver = imgutils.ImgSaver("./savedimgs/")
     while True:
         try:
             if len(IMGBUFF.content)>0:
-                log.info("bgjob with %s objects in buff ",len(IMGBUFF.content))
+
                 a,params, triggerDate = IMGBUFF.pop()
                 
-                image = Image.fromarray(a)
-
                 save_format = params["save_format"]
                 save_section = params["save_section"]
                 save_subsection = params["save_subsection"]
-                
-                
-                if serverConnection :
-                    if not serverOverwhelmed:
-                        try:
 
-                            dispresol = (params["dispresol"]["width"],
-                                    params["dispresol"]["height"])
-
-                            log.debug("go for resize b64 json")
-                            imageDisplay = imgutils.resizeImage(image,dispresol)
-                            data = imgutils.pilimTobase64Jpg(imageDisplay)
-                            msg=json.dumps({
-                                "usedParams":params,
-                                "msgtype":"srcimage",
-                                "imageData":data})
-
-
-                            log.debug("sending to server")
-                            await serverConnection.send(msg)
-                            await asyncio.sleep(.02) # wait a little
-
-                        except websockets.exceptions.ConnectionClosed as e:
-                            serverConnection =False
-                            log.error("disconnected with server %s",e)
-                        except Exception as e:
-                            log.exception("err sending to server %s",e)
-                    else:
-                        log.info("server has too much work")
-                else:
-                    log.info("no server")
                 if save_format in ["none"]:
                     pass
                 else:
 
+
+                    image = Image.fromarray(a)
                     loop = asyncio.get_running_loop()
 
                     def blocking_io():
@@ -287,16 +276,83 @@ async def bgjob():
                                                                triggerDate)
 
                             logth.info("saving to %s %s", fdest, fileNameExt)
+                            return fdest, fileNameExt
                         except Exception as e:
                             logth.exception("error saving")
 
-                        return fdest, fileNameExt
+                            return "None", "none"
 
 
                     with concurrent.futures.ThreadPoolExecutor() as pool:
                         result = await loop.run_in_executor(
                             pool, blocking_io)
+            else:
+                # wait for image
+                await asyncio.sleep(sleepdur)
 
+        except Exception as e:
+            log.exception("error saving")
+
+async def bgjob():
+    """
+    use the IMGBUFF global object
+
+    """
+    global serverConnection 
+    global serverOverwhelmed 
+
+    log = logging.getLogger("imgForwd")
+    sleepdur = .1
+    
+    alreadySeen = None
+    while True:
+        try:
+            if len(IMGBUFF.content)>0:
+                a,params, triggerDate = IMGBUFF.content[-1]
+
+                if triggerDate != alreadySeen:
+                    log.info("bgjob with %s objects in buff ",len(IMGBUFF.content))
+                    log.info("will send to server")
+
+                    alreadySeen = triggerDate
+                    image = Image.fromarray(a)
+
+                    save_format = params["save_format"]
+                    save_section = params["save_section"]
+                    save_subsection = params["save_subsection"]
+                    
+                    
+                    if serverConnection :
+                        if not serverOverwhelmed:
+                            try:
+
+                                dispresol = (params["dispresol"]["width"],
+                                        params["dispresol"]["height"])
+
+                                log.debug("go for resize b64 json")
+                                imageDisplay = imgutils.resizeImage(image,dispresol)
+                                data = imgutils.pilimTobase64Jpg(imageDisplay)
+                                msg=json.dumps({
+                                    "usedParams":params,
+                                    "msgtype":"srcimage",
+                                    "imageData":data})
+
+
+                                log.debug("sending to server")
+                                await serverConnection.send(msg)
+                                await asyncio.sleep(.02) # wait a little
+
+                            except websockets.exceptions.ConnectionClosed as e:
+                                serverConnection =False
+                                log.error("disconnected with server %s",e)
+                            except Exception as e:
+                                log.exception("err sending to server %s",e)
+                        else:
+                            log.info("server has too much work")
+                    else:
+                        log.info("no server")
+                else:
+                    await asyncio.sleep(.1)
             else:
                 # wait for image
                 await asyncio.sleep(sleepdur)
@@ -314,11 +370,13 @@ async def main():
 
     task1 = asyncio.create_task(wsclient('ws://localhost:8765/camera'))
     task2 = asyncio.create_task( cameraLoop())
+    #task4 = asyncio.create_task( savingJob())
     task3 = asyncio.create_task( bgjob())
     
     await task1
     await task2
     await task3
+    await task4
 
 
 if __name__ == "__main__":
