@@ -21,7 +21,7 @@ import json
 import os
 import imgutils
 from rootserver import makeMessage, MsgBuff
-
+import datetime
 
 continueLoop=True
 freshParams=None
@@ -47,7 +47,8 @@ class MyAnalyser(PiRGBAnalysis):
         triggerDate = time.time()
         g = self.cam.awb_gains 
         usedparams = {
-                "triggerDate":triggerDate,
+            "triggerDate":triggerDate,
+            "triggerDateStr":str(datetime.datetime.utcnow()),
             "shutterSpeed": str(self.cam.shutter_speed),
             "isovalue": self.cam.iso,
             "redgain":str( g[0]),
