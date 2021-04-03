@@ -53,6 +53,9 @@ USERS = set()
 
 MOTORSTATS=MsgBuff(1000)
 CAMSTATS=MsgBuff(1000)
+IMGSFORWEB=MsgBuff(2)
+
+overWhelmed = False
 
 def makeRandomImage(width, height):
     # random Pil Image
@@ -71,6 +74,25 @@ def makeRandomImage(width, height):
 
     return data, histData
 
+
+
+async def overwhelmedStart():
+    global overWhelmed
+
+    global WSCAMERA
+
+    overWhelmed = True
+    if WSCAMERA:
+        await WSCAMERA.send(makeMessage("serverOverwhelmed",True,jdump=True))
+
+async def overwhelmedEnd():
+    global overWhelmed
+
+    global WSCAMERA
+
+    overWhelmed = False
+    if WSCAMERA:
+        await WSCAMERA.send(makeMessage("serverOverwhelmed",False,jdump=True))
 
 
 
@@ -173,7 +195,12 @@ async def handler(websocket, path):
                     currentParams = msg["data"]
                     if WSCAMERA:
                         log.info("sending params to camera")
-                        await WSCAMERA.send(rawData)
+
+                        try:
+                            await WSCAMERA.send(rawData)
+                        except Exception as e:
+                            log.warning("could not send data to WS CAMERA")
+
                     else:
                         log.info("setting new params but no camera detected")
                 elif msg["msgtype"] == "ctlparams":
@@ -185,16 +212,10 @@ async def handler(websocket, path):
 
                 elif msg["msgtype"] == "srcimage":
 
-                    strt = time.time()
-                    decoded = base64.b64decode(msg["imageData"].encode("utf-8"))
-                    currentImage = Image.open(io.BytesIO(decoded))
-                    currentUsedParams = msg["usedParams"]
-                    # TODO keep usedParams in a stack 
-
-                    log.info("image decodeTo Image dur %.2f",time.time()-strt)
-                    strt = time.time()
-                    await bcastImg(currentImage, currentUsedParams)
-                    log.info("sending to all clients dur %.2f",time.time()-strt)
+                    IMGSFORWEB.stack(msg)
+                    if len(IMGSFORWEB.content) >=2:
+                        await overwhelmedStart()
+                        log.info("start overWhelmed")
 
 
                 elif msg["msgtype"] == "motorInfo":
@@ -220,7 +241,7 @@ async def handler(websocket, path):
         log.exception("error")
     finally:
         if "camera" in path:
-            log.warning("no camera around :(")
+            log.warning("camera closed connection :(")
             WSCAMERA = None
         elif "motor" in path:
             log.warning("motor connection close")
@@ -228,9 +249,40 @@ async def handler(websocket, path):
         else:
             await unregister(websocket)
 
+async def forwardImageToWeb():
+    log = logging.getLogger("fwdImage")
+    global currentParams
+    global WSMOTOR
+    global WSCAMERA
+    global USERS
+    while True:
+        try:
+            inbuff= len(IMGSFORWEB.content)
+            if inbuff >0:
+                msg = IMGSFORWEB.pop()
+                strt = time.time()
+                decoded = base64.b64decode(msg["imageData"].encode("utf-8"))
+                currentImage = Image.open(io.BytesIO(decoded))
+                currentUsedParams = msg["usedParams"]
+                
+                log.info("image decodeTo Image dur %.2f",time.time()-strt)
+                try:
+                    await bcastImg(currentImage, currentUsedParams)
+                except Exception as e:
+                    log.exception("error broadcasting image")
 
+                dur = time.time()-strt
+                log.info("sending to all clients dur %.2f",dur)
+                
+                await asyncio.sleep(.05)
+                if len(IMGSFORWEB.content)<inbuff:
+                    await overwhelmedEnd()
+            else:
 
-
+                await asyncio.sleep(.02)
+        except Exception as e:
+            log.exception("error")
+            await asyncio.sleep(.02)
 
 async def bgjob(diskList):
     log = logging.getLogger("bgjob")
@@ -266,6 +318,7 @@ def serviceStatus():
         serviceStatus[subserv] = [status, 0]
 
     serviceStatus["WEBUSERS"] = ["OK", len(USERS)]
+    serviceStatus["OVERWHELM"] = ["OK", str(overWhelmed)]
 
     return serviceStatus
 
@@ -289,19 +342,37 @@ def scanDiskUsage(diskList):
     return res
 
 
-if __name__ == "__main__":
+async def runWebSock():
+
+    async with websockets.serve(handler, WSHOST, WSPORT) as srv:
+        pass
+
+def main():
+
+
 
     WSHOST = "0.0.0.0"
     WSPORT = 8765
     
     DISKLIST = ["/","/dev/shm"]
     
-    loggingLevel = logging.INFO # 20; ERROR is 40 
-    
-    logging.basicConfig(level=loggingLevel)
     logging.info("listening at ws://%s:%s"%(WSHOST, WSPORT))
-    start_server = websockets.serve(handler, WSHOST, WSPORT)
+    
+    srvobject = websockets.serve(handler, WSHOST, WSPORT)
+    asyncio.get_event_loop().run_until_complete(srvobject) 
 
-    asyncio.get_event_loop().run_until_complete(start_server)
-    asyncio.get_event_loop().run_until_complete(bgjob(DISKLIST))
+    asyncio.get_event_loop().create_task(forwardImageToWeb())
+    asyncio.get_event_loop().create_task(bgjob(DISKLIST))
+    logging.info("ldkmjflmkfqd")
     asyncio.get_event_loop().run_forever()
+
+
+if __name__ == "__main__":
+    loggingLevel = logging.INFO # 20; ERROR is 40 
+    logging.basicConfig(level=loggingLevel)
+
+
+    main()
+    #asyncio.run(main())
+
+
