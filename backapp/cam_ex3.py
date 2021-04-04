@@ -28,7 +28,9 @@ freshParams=None
 
 newFreshParams = True
 
-IMGBUFF = MsgBuff(50)
+IMGBUFF = MsgBuff(2)
+TOSAVEBUFF = MsgBuff(10)
+
 
 serverConnection= None
 serverOverwhelmed = False
@@ -59,6 +61,18 @@ class MyAnalyser(PiRGBAnalysis):
             "brightness":self.cam.brightness,
             "saturation":self.cam.saturation,
             "contrast":self.cam.contrast,
+
+
+            "sensor_mode" : self.cam.sensor_mode,
+            "sharpness" : self.cam.sharpness,
+            "video_denoise" : self.cam.video_denoise,
+            "video_stabilization" : self.cam.video_stabilization,
+            "zoom" : str(self.cam.zoom),
+            "revision" : str(self.cam.revision),
+            "resolution" : str(self.cam.resolution),
+            "digital_gain" : str(self.cam.digital_gain),
+
+            "analog_gain" : str(self.cam.analog_gain),#ro
                 }
         
 
@@ -121,12 +135,14 @@ async def openCamera(params):
             camera.iso = params["isovalue"]
             camera.brightness = params["brightness"] 
             camera.contrast = params["contrast"] 
-            camera.exposure_mode = params["expomode"]
-            camera.exposure_compensation = params["exposure_compensation"]
             camera.saturation = params["saturation"]
-            
+
             camera.shutter_speed =params["shutterSpeed"]
-            
+            camera.exposure_mode = params["expomode"]
+
+            camera.exposure_compensation = params["exposure_compensation"]
+
+
             camera.awb_mode = 'off'
             g=(params["redgain"],params["bluegain"])
             camera.awb_gains = g
@@ -140,14 +156,19 @@ async def openCamera(params):
                         await asyncio.sleep(.001)
                         
                         if newFreshParams:
-                            continueLoop=False
+                            newps = cleanParams(freshParams)
+
+
                         """if fresh params has changed:
                         
                         if param key in resolution or expo mode contrast sta, bright
                         # QUIT, 
-                        elif in shutterSpeed, iso or other
+                        elif in shutter_speed, iso or saturation 
+                        awb_gains
+                        exposure_mode
 
-                        camera.shutterSpeed = 3
+                        
+                        image_denoise
 
 
 
@@ -250,22 +271,26 @@ async def bgjob():
     while True:
         try:
             if len(IMGBUFF.content)>0:
-                a,params, triggerDate = IMGBUFF.content[-1]
+                a,params, triggerDate = IMGBUFF.pop()
+
+                save_format = params["save_format"]
+                save_section = params["save_section"]
+                save_subsection = params["save_subsection"]
+
+                if save_format not in ["none"]:
+                    TOSAVEBUFF.strack((a,params, triggerDate))
 
                 if triggerDate != alreadySeen:
-                    log.info("bgjob with %s objects in buff ",len(IMGBUFF.content))
-                    log.info("will send to server")
+                    if not serverOverwhelmed:
+                        log.info("bgjob with %s objects in buff ",len(IMGBUFF.content))
+                        log.info("will send to server")
 
-                    alreadySeen = triggerDate
-                    image = Image.fromarray(a)
+                        alreadySeen = triggerDate
+                        image = Image.fromarray(a)
 
-                    save_format = params["save_format"]
-                    save_section = params["save_section"]
-                    save_subsection = params["save_subsection"]
-                    
-                    
-                    if serverConnection :
-                        if not serverOverwhelmed:
+
+
+                        if serverConnection :
                             try:
 
                                 dispresol = (params["dispresol"]["width"],
@@ -290,9 +315,9 @@ async def bgjob():
                             except Exception as e:
                                 log.exception("err sending to server %s",e)
                         else:
-                            log.info("server has too much work")
+                            log.info("no server")
                     else:
-                        log.info("no server")
+                        log.info("server has too much work")
                 else:
                     await asyncio.sleep(.1)
             else:
@@ -325,7 +350,7 @@ async def savingJob():
         try:
             if len(IMGBUFF.content)>0:
 
-                a,params, triggerDate = IMGBUFF.pop()
+                a,params, triggerDate = TOSAVEBUFF.pop()
                 
                 save_format = params["save_format"]
                 save_section = params["save_section"]
@@ -341,8 +366,6 @@ async def savingJob():
 
                     def blocking_io():
                         logth = logging.getLogger("saveinthread")
-
-
                         try:
                             fdest, fileNameExt = imgSaver.save(image,
                                                                save_format,
@@ -354,8 +377,7 @@ async def savingJob():
                             return fdest, fileNameExt
                         except Exception as e:
                             logth.exception("error saving")
-
-                            return "None", "none"
+                            return "none", "none"
 
 
                     with concurrent.futures.ThreadPoolExecutor() as pool:

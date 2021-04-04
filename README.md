@@ -17,3 +17,4 @@ todolist
 
 - [x] benchmark image writing speed
 
+- [ ] add link to supervisord UI
