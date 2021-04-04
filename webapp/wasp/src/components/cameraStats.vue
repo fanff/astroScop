@@ -1,7 +1,7 @@
 <template>
   <div >
-inbuff : {{lastStat().imgbuffcount}}
-tosave : {{lastStat().tosavecount}}
+      inbuff : {{lastStat().imgbuffcount}}<br/>
+      tosave : {{lastStat().tosavecount}}
   </div>
 </template>
 

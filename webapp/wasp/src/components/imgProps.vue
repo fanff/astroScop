@@ -1,27 +1,27 @@
 <template>
   <div >
      <div v-show="usedParamsSet" class="parent">
-         <div class="div1"> 
+         <div class="div0"> 
+            <imgStats v-bind:imgStats="imgStats"></imgStats>
+         </div> 
+         <div class="div1">
              <ul>
                  <li>{{usedParams.triggerDateStr}}</li>
                  <li>isovalue: {{usedParams.isovalue}}</li>
-                 <li>red gain:{{usedParams.redgain}}</li>
-                 <li>blue gain:{{usedParams.bluegain}}</li>
-                 <li>bright:{{usedParams.brightness}}</li>
-                 <li>sat:{{usedParams.saturation}}</li>
-                 <li>exposure:{{usedParams.exposure_compensation}}</li>
-                 <li>contrast:{{usedParams.contrast}}</li>
-                 <li>iso: {{usedParams.isovalue}}</li>
+                 <li>R/B:{{usedParams.redgain}} {{usedParams.bluegain}}</li>
+                 <li>brt:{{usedParams.brightness}} sat:{{usedParams.saturation}}</li>
+                 <li>expo:{{usedParams.exposure_compensation}} ctrst:{{usedParams.contrast}}</li>
+                 <li>iso: {{usedParams.isovalue}} sharp :{{usedParams.sharpness}}</li>
                  <li>shutter: {{usedParams.shutterSpeed}}</li>
              </ul>
          </div>
+
          <div class="div2"> 
              <ul>
-                 <li>shoot at: {{usedParams.shootresol.name}}</li>
-                 <li>display at:{{usedParams.dispresol.name}}</li>
-                 <li>awb_mode:{{usedParams.awb_mode}}</li>
-                 <li>exposure_mode:{{usedParams.expomode}}</li>
-                 <li>capture_format: {{usedParams.capture_format}}</li>
+                 <li>shot: {{usedParams.shootresol.name}}</li>
+                 <li>displ:{{usedParams.dispresol.name}}</li>
+                 <li>expo_mode:{{usedParams.expomode}}</li>
+                 <li>capture: {{usedParams.capture_format}}</li>
                  <li>save_format: {{usedParams.save_format}}</li>
                  <li>fdest: {{usedParams.fdest}}</li>
                  <li>filename: {{usedParams.fileNameExt}}</li>
@@ -32,7 +32,6 @@
           <div class="div3"> 
              <ul>
 <li>sensor_mode :{{usedParams.sensor_mode}} </li>
-<li>sharpness :{{usedParams.sharpness}} </li>
 <li>video_denoise :{{usedParams.video_denoise}} </li>
 <li>video_stabilization :{{usedParams.video_stabilization}} </li>
 <li>zoom :{{usedParams.zoom}} </li>
@@ -48,14 +47,17 @@
 </template>
 
 <script>
+import imgStats from './imgStats.vue'
 
 export default {
   components: {
+      imgStats
   },
 
   name: 'imgProps',
   props: {
       imgProps:Object,
+      imgStats:Object,
   },
   data () {
     return {
@@ -89,23 +91,29 @@ export default {
 <style scoped>
 .parent {
     display: grid;
-    grid-template-columns: 1fr  1fr  1fr 0fr;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
     grid-template-rows: 1fr;
-    grid-column-gap: 2px;
+    grid-column-gap: 5px;
     grid-row-gap: 2px;
 
     grid-template-areas:
       "a b c d";
 }
 
-.div1 { grid-area: c; }
-.div2 { grid-area: b; }
-.div3 { grid-area: a; }
+.div0 { grid-area: a; }
+.div1 { grid-area: b; }
+.div2 { grid-area: c; }
+.div3 { grid-area: d; }
 .parent > div{
-
-    background: #0007;
+    color: #ff221c;
+    background: #0006;
+    font-size: 14px;
+      font-family: monospace, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
 }
 ul{
+    padding-left: 0px;
     list-style-type:none;
 }
 
