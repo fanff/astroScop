@@ -29,7 +29,7 @@ freshParams=None
 newFreshParams = True
 
 IMGBUFF = MsgBuff(2)
-TOSAVEBUFF = MsgBuff(10)
+TOSAVEBUFF = MsgBuff(30)
 
 
 serverConnection= None
@@ -102,6 +102,7 @@ defaultconfig = {
         "brightness":50,
         "saturation":0,
         "contrast":0,
+        "sharpness":0,
         "save_format":"none",
         "save_section":"test",
         "save_subsection":"",
@@ -124,7 +125,7 @@ def setParamsToCamera(camera,params):
     camera.brightness = params["brightness"]
     camera.contrast = params["contrast"]
     camera.saturation = params["saturation"]
-
+    camera.sharpness = params["sharpness"]
     camera.shutter_speed = params["shutterSpeed"]
     camera.exposure_mode = params["expomode"]
 
@@ -271,8 +272,7 @@ async def bgjob():
 
     log = logging.getLogger("imgForwd")
     sleepdur = .1
-    
-    alreadySeen = None
+    lastTimingSend   = 0
     while True:
         try:
             if len(IMGBUFF.content)>0:
@@ -285,51 +285,60 @@ async def bgjob():
                 if save_format not in ["none"]:
                     TOSAVEBUFF.stack((a,params, triggerDate))
 
-                if triggerDate != alreadySeen:
-                    if not serverOverwhelmed:
-                        log.debug("bgjob with %s objects in buff ",len(IMGBUFF.content))
-                        log.debug("will send to server")
+                if not serverOverwhelmed:
+                    log.debug("bgjob with %s objects in buff ",len(IMGBUFF.content))
+                    log.debug("will send to server")
 
-                        alreadySeen = triggerDate
-                        image = Image.fromarray(a)
+                    image = Image.fromarray(a)
 
+                    if serverConnection :
+                        try:
 
+                            dispresol = (params["dispresol"]["width"],
+                                    params["dispresol"]["height"])
 
-                        if serverConnection :
-                            try:
-
-                                dispresol = (params["dispresol"]["width"],
-                                        params["dispresol"]["height"])
-
-                                log.debug("go for resize b64 json")
-                                imageDisplay = imgutils.resizeImage(image,dispresol)
-                                data = imgutils.pilimTobase64Jpg(imageDisplay)
-                                msg=json.dumps({
-                                    "usedParams":params,
-                                    "msgtype":"srcimage",
-                                    "imageData":data})
+                            log.debug("go for resize b64 json")
+                            imageDisplay = imgutils.resizeImage(image,dispresol)
+                            data = imgutils.pilimTobase64Jpg(imageDisplay)
+                            msg=json.dumps({
+                                "usedParams":params,
+                                "msgtype":"srcimage",
+                                "imageData":data})
 
 
-                                log.debug("sending to server")
-                                await serverConnection.send(msg)
-                                await asyncio.sleep(.02) # wait a little
+                            log.debug("sending to server")
+                            await serverConnection.send(msg)
+                            await asyncio.sleep(.02) # wait a little
 
-                            except websockets.exceptions.ConnectionClosed as e:
-                                serverConnection =False
-                                log.error("disconnected with server %s",e)
-                            except Exception as e:
-                                log.exception("err sending to server %s",e)
-                        else:
-                            log.info("no server")
+                        except websockets.exceptions.ConnectionClosed as e:
+                            serverConnection =False
+                            log.error("disconnected with server %s",e)
+                        except Exception as e:
+                            log.exception("err sending to server %s",e)
                     else:
-                        log.debug("server has too much work")
-                        await asyncio.sleep(.1)
+                        log.info("no server")
                 else:
-                    await asyncio.sleep(.1)
+                    log.debug("server has too much work")
+                    await asyncio.sleep(.001)
             else:
                 # wait for image
                 await asyncio.sleep(sleepdur)
+            
+            if time.time()>lastTimingSend + 3: 
+                lastTimingSend = time.time()
+                # now send timing data
+                timingData ={
+                        "imgbuffcount" : len(IMGBUFF.content),
+                        "tosavecount" : len(TOSAVEBUFF.content),
+                        }
 
+                #msg = ",".join(["%s: %.2f"%(k,timingData[k]) for k in sorted(timingData.keys()) if "dur" in k])
+                log.info("some info %s ",timingData)
+                
+                if serverConnection :
+                    msg = makeMessage("camTiming",timingData,jdump=True)
+                    await serverConnection.send(msg)
+                await asyncio.sleep(.0001)
         except concurrent.futures._base.CancelledError as e:
             log.info("quit due to cancelledError")
             return 
@@ -354,8 +363,10 @@ async def savingJob():
     log.info("saver created ")
     while True:
         try:
-            if len(TOSAVEBUFF.content)>0:
+            count = len(TOSAVEBUFF.content)
+            if count>0:
 
+                log.info("going to save image %s ",count)
                 a,params, triggerDate = TOSAVEBUFF.pop()
                 
                 save_format = params["save_format"]
@@ -366,7 +377,6 @@ async def savingJob():
                     await asyncio.sleep(0.01)
                 else:
 
-                    log.info("going to save image")
                     image = Image.fromarray(a)
                     loop = asyncio.get_running_loop()
 
@@ -379,7 +389,7 @@ async def savingJob():
                                                                save_subsection,
                                                                triggerDate)
 
-                            logth.info("saving to %s %s", fdest, fileNameExt)
+                            #logth.info("saving to %s %s", fdest, fileNameExt)
                             return fdest, fileNameExt
                         except Exception as e:
                             logth.exception("error saving")
