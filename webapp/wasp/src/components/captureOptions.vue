@@ -54,7 +54,8 @@
 
 
     <div class="ie">
-       iso<v-select v-model="isovalue" :options="isovalues" ></v-select>
+       
+        iso<v-select v-model="isovalue" :options="isovalues" ></v-select>
        expomode<v-select v-model="expomode" :options="expomodes" ></v-select>
         
       captureMethod<v-select v-model="capture_format" :options="capture_formats" ></v-select>
@@ -296,8 +297,8 @@ input {
     display: grid;
     grid-template-columns: 1fr  2fr  2fr;
     grid-template-rows: 1fr 1fr;
-    grid-column-gap: 2px;
-    grid-row-gap: 2px;
+    grid-column-gap: 4px;
+    grid-row-gap: 4px;
 
     grid-template-areas:
       "a b c"

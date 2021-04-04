@@ -8,7 +8,7 @@
              <ul>
                  <li>{{usedParams.triggerDateStr}}</li>
                  <li>isovalue: {{usedParams.isovalue}}</li>
-                 <li>R/B:{{usedParams.redgain}} {{usedParams.bluegain}}</li>
+                 <li>R/B:{{usedParams.redgain.toFixed(2)}} {{usedParams.bluegain.toFixed(2)}}</li>
                  <li>brt:{{usedParams.brightness}} sat:{{usedParams.saturation}}</li>
                  <li>expo:{{usedParams.exposure_compensation}} ctrst:{{usedParams.contrast}}</li>
                  <li>iso: {{usedParams.isovalue}} sharp :{{usedParams.sharpness}}</li>
