@@ -70,9 +70,9 @@ class MyAnalyser(PiRGBAnalysis):
             "zoom" : str(self.cam.zoom),
             "revision" : str(self.cam.revision),
             "resolution" : str(self.cam.resolution),
-            "digital_gain" : str(self.cam.digital_gain),
+            "digital_gain" : str(float(self.cam.digital_gain)),
 
-            "analog_gain" : str(self.cam.analog_gain),#ro
+            "analog_gain" : str(float(self.cam.analog_gain)),
                 }
         
 
@@ -83,36 +83,59 @@ class MyAnalyser(PiRGBAnalysis):
         
         #print("stacked , %s"%len(IMGBUFF.content))
 
-        
-def cleanParams(params):
-    if params == None :
-        return {
-            "shutterSpeed": 150000,
-            "isovalue": 100,
-            "redgain": 1.0 ,
-            "bluegain": 1.0,
-            "expomode": "off",
-            "shootresol":{ "width":480,"height":368},
-            "dispresol":{ "width":480,"height":368},
-            "capture_format":"rgb", # or yuv
-            "exposure_compensation":0,
 
-            "brightness":50,
-            "saturation":0,
-            "contrast":0,
-            "save_format":"none",
-            "save_section":"test",
-            "save_subsection":"",
-        }
+
+defaultconfig = {
+        "shutterSpeed": 150000,
+        "isovalue": 100,
+        "redgain": 1.0 ,
+        "bluegain": 1.0,
+
+        "digital_gain": 1.0,
+        "analog_gain": 1.0,
+        "expomode": "off",
+        "shootresol":{ "name":"default", "width":480,"height":368},
+        "dispresol":{ "name":"default","width":480,"height":368},
+        "capture_format":"rgb", # or yuv
+        "exposure_compensation":0,
+
+        "brightness":50,
+        "saturation":0,
+        "contrast":0,
+        "save_format":"none",
+        "save_section":"test",
+        "save_subsection":"",
+
+}
+
+mandatoryKeys = set(defaultconfig.keys())
+def cleanParams(params):
+
+    if params == None :
+        return defaultconfig
     else:
-        params["shutterSpeed"]
-        params["isovalue"]
-        params["redgain"]
-        params["bluegain"]
-        params["expomode"]
+        for k in mandatoryKeys:
+            if k not in params:
+                params[k] = defaultconfig[k]
         return params
 
+def setParamsToCamera(camera,params):
+    camera.iso = params["isovalue"]
+    camera.brightness = params["brightness"]
+    camera.contrast = params["contrast"]
+    camera.saturation = params["saturation"]
 
+    camera.shutter_speed = params["shutterSpeed"]
+    camera.exposure_mode = params["expomode"]
+
+    camera.exposure_compensation = params["exposure_compensation"]
+
+    camera.awb_mode = 'off'
+    g = (params["redgain"], params["bluegain"])
+    camera.awb_gains = g
+
+    camera.digital_gain = params["digital_gain"]
+    camera.analog_gain = params["analog_gain"]
 
 async def openCamera(params):
     global continueLoop
@@ -129,25 +152,8 @@ async def openCamera(params):
         
         with picamerax.PiCamera(resolution=strtResolution, 
                 framerate_range=(0.1,30)) as camera:
-            
-            
-            # Fix the camera's white-balance gains
 
-            camera.iso = params["isovalue"]
-            camera.brightness = params["brightness"] 
-            camera.contrast = params["contrast"] 
-            camera.saturation = params["saturation"]
-
-            camera.shutter_speed =params["shutterSpeed"]
-            camera.exposure_mode = params["expomode"]
-
-            camera.exposure_compensation = params["exposure_compensation"]
-
-
-            camera.awb_mode = 'off'
-            g=(params["redgain"],params["bluegain"])
-            camera.awb_gains = g
-
+            setParamsToCamera(camera, params)
 
             with MyAnalyser(camera,params) as analyzer:
                 camera.start_recording(analyzer, 'rgb')
@@ -156,27 +162,22 @@ async def openCamera(params):
                         camera.wait_recording(.001)
                         await asyncio.sleep(.001)
 
-                        #log.info("new Fresh Params: %s",newFreshParams)
+
                         if newFreshParams:
                             newps = cleanParams(freshParams)
 
-                            continueLoop = False
-                        camera.digital_gain= 1.4
-                        camera.analog_gain= 1.4
-                        """if fresh params has changed:
-                        
-                        if param key in resolution or expo mode contrast sta, bright
-                        # QUIT, 
-                        elif in shutter_speed, iso or saturation 
-                        awb_gains
-                        exposure_mode
 
-                        
-                        image_denoise
+                            alldiff = imgutils.findConfigDiff(params, newps)
+
+                            if "shootresol" in alldiff:
+                                continueLoop = False
+                            else:
+                                analyzer.params = newps
+                                log.info("new Fresh Params: %s",newFreshParams)
+                                setParamsToCamera(camera,newps)
+                                newFreshParams = False
 
 
-
-                        """
                 except Exception as e:
                     log.exception("error in recording")
                 finally:

@@ -144,4 +144,17 @@ else:
 
 
 
+def findConfigDiff(existing,newp):
+
+    newVals = {}
+    for k,v in newp.items():
+        if k in existing:
+            if v==existing[k]:
+                pass
+            else:
+                newVals[k]=v
+
+        else:
+            newVals[k] = v
+    return newVals
 

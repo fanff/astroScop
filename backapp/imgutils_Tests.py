@@ -4,7 +4,7 @@ from shutil import rmtree
 
 import PIL
 import pandas as pd
-from imgutils import makePilIMgs, resizeImage, ImgSaver
+from imgutils import makePilIMgs, resizeImage, ImgSaver, findConfigDiff
 import numpy as np
 import os
 
@@ -288,6 +288,21 @@ class TC_bench_SaveImage(unittest.TestCase):
         makeStatpng(df, "realinstick.png", "real_in stick")
 
         rmtree("/media/imgstick/a")
+
+
+class TC_findConfigDiff(unittest.TestCase):
+    def test_1_(self):
+        self.assertDictEqual({"a":"n"},findConfigDiff({},{"a":"n"}))
+        self.assertDictEqual({}, findConfigDiff({"a": "n"}, {}))
+
+        self.assertDictEqual({},findConfigDiff({"a":"n"},{"a":"n"}))
+
+        self.assertDictEqual({"a": "b"}, findConfigDiff({"a": "n"}, {"a": "b"}))
+
+    def test_2_(self):
+        self.assertDictEqual({"a": {"aname": "xd"}},
+                             findConfigDiff({"a": {"aname": "lol"}},
+                                            {"a": {"aname": "xd"}}))
 
 
 
