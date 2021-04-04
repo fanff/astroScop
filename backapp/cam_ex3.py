@@ -7,10 +7,10 @@ import logging
 
 
 import time
-import picamera
+import picamerax
 import numpy as np
-from picamera.array import PiRGBAnalysis
-from picamera.color import Color
+from picamerax.array import PiRGBAnalysis
+from picamerax.color import Color
 
 
 import logging
@@ -115,9 +115,10 @@ def cleanParams(params):
 
 
 async def openCamera(params):
+    global continueLoop
+    global newFreshParams
     try:
-        global continueLoop
-
+        
         log = logging.getLogger("openCam")
 
         shootresol = params["shootresol"]
@@ -126,7 +127,7 @@ async def openCamera(params):
         log.info("OpeningCamera at resol %s",(strtResolution,))
 
         
-        with picamera.PiCamera(resolution=strtResolution, 
+        with picamerax.PiCamera(resolution=strtResolution, 
                 framerate_range=(0.1,30)) as camera:
             
             
@@ -154,11 +155,14 @@ async def openCamera(params):
                     while continueLoop:
                         camera.wait_recording(.001)
                         await asyncio.sleep(.001)
-                        
+
+                        #log.info("new Fresh Params: %s",newFreshParams)
                         if newFreshParams:
                             newps = cleanParams(freshParams)
 
-
+                            continueLoop = False
+                        camera.digital_gain= 1.4
+                        camera.analog_gain= 1.4
                         """if fresh params has changed:
                         
                         if param key in resolution or expo mode contrast sta, bright
@@ -236,7 +240,7 @@ async def wsclient(uri):
                         log.info("received new fresh params")
                     elif msg["msgtype"]== "serverOverwhelmed":
                         serverOverwhelmed = msg["data"]
-                        log.info("received overwhelmed %s",msg["data"])
+                        log.debug("received overwhelmed %s",msg["data"])
                     else:
                         log.warning("received type %s",msg["msgtype"])
 
@@ -278,12 +282,12 @@ async def bgjob():
                 save_subsection = params["save_subsection"]
 
                 if save_format not in ["none"]:
-                    TOSAVEBUFF.strack((a,params, triggerDate))
+                    TOSAVEBUFF.stack((a,params, triggerDate))
 
                 if triggerDate != alreadySeen:
                     if not serverOverwhelmed:
-                        log.info("bgjob with %s objects in buff ",len(IMGBUFF.content))
-                        log.info("will send to server")
+                        log.debug("bgjob with %s objects in buff ",len(IMGBUFF.content))
+                        log.debug("will send to server")
 
                         alreadySeen = triggerDate
                         image = Image.fromarray(a)
@@ -317,7 +321,8 @@ async def bgjob():
                         else:
                             log.info("no server")
                     else:
-                        log.info("server has too much work")
+                        log.debug("server has too much work")
+                        await asyncio.sleep(.1)
                 else:
                     await asyncio.sleep(.1)
             else:
@@ -348,7 +353,7 @@ async def savingJob():
     log.info("saver created ")
     while True:
         try:
-            if len(IMGBUFF.content)>0:
+            if len(TOSAVEBUFF.content)>0:
 
                 a,params, triggerDate = TOSAVEBUFF.pop()
                 
