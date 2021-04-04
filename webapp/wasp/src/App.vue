@@ -30,8 +30,7 @@
           </div>
           <div class="div3"> 
               <div v-show="showStats"> 
-                <imgStats v-bind:imgStats="imgStats"></imgStats>
-                <imgProps v-bind:imgProps="imgProps"></imgProps>
+                <imgProps  v-bind:imgStats="imgStats" v-bind:imgProps="imgProps"></imgProps>
               </div>
 
               <div v-show="showCamStats"> 
@@ -58,7 +57,7 @@
 
 import captureOptions from './components/captureOptions.vue'
 import imgDisplay from './components/imgDisplay.vue'
-import imgStats from './components/imgStats.vue'
+//import imgStats from './components/imgStats.vue'
 import imgProps from './components/imgProps.vue'
 import motorStats from './components/motorStats.vue'
 import memstats from './components/memoryStats.vue'
@@ -67,7 +66,7 @@ import camStats from './components/cameraStats.vue'
 export default {
   name: 'App',
   components: {
-    captureOptions,imgDisplay,imgStats, imgProps,motorStats,memstats,camStats
+    captureOptions,imgDisplay, imgProps,motorStats,memstats,camStats
   },
   data () {
     return {
@@ -208,14 +207,24 @@ export default {
 .parent {
     display: grid;
     grid-template-columns: 1fr;
-    grid-template-rows: 1fr 12fr;
+    grid-template-rows: 30px 12fr;
     grid-column-gap: 1px;
     grid-row-gap: 0px;
+    
+    grid-template-areas:
+      "a"
+      "b"
 }
 
+.div1 { grid-area: a; }
+.div2 { grid-area: b; }
+.div3 { grid-area: b; }
+
+/*
 .div1 { grid-area: 1 / 1 / 2 / 2; }
 .div2 { grid-area: 2 / 1 / 3 / 2; }
 .div3 { grid-area: 2 / 1 / 3 / 2; }
+*/
 
 
 button {

@@ -13,13 +13,13 @@
         :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor ,color: 'black' }"/>RED
       
         
-        <VueSlideBar v-model="analog_gain" :min=0 :max=800
+        <VueSlideBar v-model="analog_gain" :min=100 :max=800
         :processStyle="{backgroundColor: slidestyle.backgroundColor}"
         :lineHeight="10"
         :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor ,color: 'black' }"/>
 
        analog_gain
-      <VueSlideBar v-model="digital_gain" :min=0 :max=800
+      <VueSlideBar v-model="digital_gain" :min=100 :max=800
         :processStyle="{backgroundColor: slidestyle.backgroundColor}"
         :lineHeight="10"
         :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor ,color: 'black' }"/>
@@ -54,13 +54,13 @@
 
 
     <div class="ie">
-        <br/>
        iso<v-select v-model="isovalue" :options="isovalues" ></v-select>
        expomode<v-select v-model="expomode" :options="expomodes" ></v-select>
         
       captureMethod<v-select v-model="capture_format" :options="capture_formats" ></v-select>
       shootresol<v-select v-model="shootresol" :options="resols" label="name"></v-select>
 
+      denoise<v-select v-model="denoise" :options="denoise_opts" label="name"></v-select>
     </div >
 
 
@@ -153,25 +153,24 @@ export default {
       bluegain:100,
       digital_gain:100,
       analog_gain:100,
-      resols:[ {name:"128x64", width:128,height:64},
-            {name:"480x368", width:480,height:368},
-          {name:"640x480", width:640,height:480},
-                
-           
-          {name:"1280x720", width:1024,height:720}, 
-
-          {name:"1332x990 HQ 2bin", width:1332,height:990}, 
-          {name:"1640x1232", width:1640,height:1232}, 
-      
-          {name:"1920x1080", width:1920,height:1080}, 
-          {name:"2028x1520 HQ 2bin", width:2028,height:1520},
-
-          //{name:"3296x2464", width:3296,height:2464},
-          {name:"4056x3040 HQ Nat", width:4056,height:3040},
+      resols:[ {name:"128x64", width:128,height:64, mode:0},
+          {name:"640x480", width:640,height:480, mode:0},
+          {name:"1280x720", width:1024,height:720, mode:0}, 
+          {name:"1332x990 HQ 2bin", width:1332,height:990, mode:0}, 
+          {name:"1640x1232", width:1640,height:1232, mode:0}, 
+          {name:"1920x1080", width:1920,height:1080, mode:0}, 
+          {name:"2028x1520 HQ 2bin", width:2028,height:1520, mode:0},
+          {name:"4056x3040 HQ Nat", width:4056,height:3040, mode:0},
+          
+          
+          {name:"2028x1088 3B (1)", width:2028,height:1088, mode:1},
+          {name:"1012x760 3B (4)", width:1012,height:760, mode:4},
       ],
-      shootresol:{name:"128x64", width:128,height:64},
-      dispresol: {name:"480x368", width:480,height:368},
-
+      shootresol:{name:"128x64", width:128,height:64,mode:0},
+      dispresol: {name:"128x64", width:128,height:64,mode:0},
+        
+    denoise_opts:[{name:true},{name:false}],
+    denoise: [{name:true}],
       save_format:"none",
       save_formats:["none","tiff","bmp"],
       
@@ -203,6 +202,7 @@ export default {
 
     capture_format:function(){this.pushParams()},
     shootresol:function(){this.pushParams()},
+    denoise:function(){this.pushParams()},
     dispresol:function(){this.pushParams()},
     save_format:function(){this.pushParams()},
     save_section:function(){this.pushParams()},
@@ -229,6 +229,7 @@ export default {
         exposure_compensation:this.exposure_compensation,
         shootresol:this.ensureResol(this.shootresol),
         dispresol:this.ensureResol(this.dispresol),
+        denoise:this.denoise.name,
         save_format:this.save_format,
         save_section:this.save_section,
         save_subsection:this.save_subsection,
@@ -293,7 +294,7 @@ input {
 
 .parent {
     display: grid;
-    grid-template-columns: 1fr  1fr  1fr;
+    grid-template-columns: 1fr  2fr  2fr;
     grid-template-rows: 1fr 1fr;
     grid-column-gap: 2px;
     grid-row-gap: 2px;
