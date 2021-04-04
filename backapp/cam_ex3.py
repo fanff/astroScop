@@ -5,7 +5,6 @@ import concurrent
 import websockets
 import logging
 
-
 import time
 import picamerax
 import numpy as np
@@ -53,8 +52,8 @@ class MyAnalyser(PiRGBAnalysis):
             "triggerDateStr":str(datetime.datetime.utcnow()),
             "shutterSpeed": str(self.cam.shutter_speed),
             "isovalue": self.cam.iso,
-            "redgain":str( g[0]),
-            "bluegain": str(g[1]),
+            "redgain":float( g[0]),
+            "bluegain": float(g[1]),
             "expomode": self.cam.exposure_mode,
             "shootresol":{ "name":str(a.shape) , "width":a.shape[1],"height":a.shape[0]},
             "exposure_compensation":self.cam.exposure_compensation,
@@ -94,8 +93,10 @@ defaultconfig = {
         "digital_gain": 1.0,
         "analog_gain": 1.0,
         "expomode": "off",
-        "shootresol":{ "name":"default", "width":480,"height":368},
-        "dispresol":{ "name":"default","width":480,"height":368},
+        "shootresol":{ "name":"default", "width":480,"height":368,"mode":0},
+        "dispresol":{ "name":"default","width":480,"height":368,"mode":0},
+
+        "denoise":True,
         "capture_format":"rgb", # or yuv
         "exposure_compensation":0,
 
@@ -138,6 +139,8 @@ def setParamsToCamera(camera,params):
     camera.digital_gain = params["digital_gain"]
     camera.analog_gain = params["analog_gain"]
 
+    camera.video_denoise = params["denoise"]
+
 async def openCamera(params):
     global continueLoop
     global newFreshParams
@@ -147,12 +150,12 @@ async def openCamera(params):
 
         shootresol = params["shootresol"]
         strtResolution = (shootresol["width"],shootresol["height"])
-        
-        log.info("OpeningCamera at resol %s",(strtResolution,))
+        sensor_mode = shootresol["mode"] 
+        log.info("OpeningCamera at resol %s (%s)",strtResolution,sensor_mode)
 
         
         with picamerax.PiCamera(resolution=strtResolution, 
-                framerate_range=(0.1,30)) as camera:
+                framerate_range=(0.1,30),sensor_mode=sensor_mode) as camera:
 
             setParamsToCamera(camera, params)
 

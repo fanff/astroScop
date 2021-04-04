@@ -11,6 +11,7 @@ from pprint import pprint
 from PIL import Image
 import numpy as np
 
+import psutil
 import io
 import base64
 import copy
@@ -337,6 +338,15 @@ def scanDiskUsage(diskList):
             res.append({
                 "total": total, "used": used, "usedpct": usedpct,
                 "free": free, "disk": diskIdent})
+
+    # adding memory usage ?a
+    import psutil
+    mem = psutil.virtual_memory()
+    
+    giga = float(1024**3)
+    res.append({
+                "total": mem.total/giga, "used": mem.used/giga, "usedpct": mem.percent,
+                "free": mem.available/giga, "disk": "ram"})
 
 
     return res
