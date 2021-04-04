@@ -1,5 +1,6 @@
 <template> <div>
-    <div >
+<div class="parent">
+    <div class="cg">
       <VueSlideBar v-model="bluegain" :min=0 :max=800 
         :processStyle="{backgroundColor: slidestyle.backgroundColor, color:'blue' }"
         :lineHeight="10"
@@ -10,10 +11,23 @@
                    :processStyle="{backgroundColor: slidestyle.backgroundColor}"
         :lineHeight="10"
         :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor ,color: 'black' }"/>RED
+      
+        
+        <VueSlideBar v-model="analog_gain" :min=0 :max=800
+        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
+        :lineHeight="10"
+        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor ,color: 'black' }"/>
+
+       analog_gain
+      <VueSlideBar v-model="digital_gain" :min=0 :max=800
+        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
+        :lineHeight="10"
+        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor ,color: 'black' }"/>
+       digital_gain
     </div >
 
 
-    <div >
+    <div class="bcss">
       <VueSlideBar v-model="brightness" :min=0 :max=100
         :processStyle="{backgroundColor: slidestyle.backgroundColor}"
         :lineHeight="10"
@@ -27,6 +41,10 @@
         :processStyle="{backgroundColor: slidestyle.backgroundColor}"
         :lineHeight="10"
         :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor ,color: 'black' }"/>Saturation
+      <VueSlideBar v-model="sharpness" :min=-100 :max=100 
+        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
+        :lineHeight="10"
+        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor ,color: 'black' }"/>Sharpness
       <VueSlideBar v-model="exposure_compensation" :min=-25 :max=25  
         :processStyle="{backgroundColor: slidestyle.backgroundColor}"
         :lineHeight="10"
@@ -35,16 +53,18 @@
     </div >
 
 
-    <div >
+    <div class="ie">
         <br/>
        iso<v-select v-model="isovalue" :options="isovalues" ></v-select>
        expomode<v-select v-model="expomode" :options="expomodes" ></v-select>
-      
+        
+      captureMethod<v-select v-model="capture_format" :options="capture_formats" ></v-select>
+      shootresol<v-select v-model="shootresol" :options="resols" label="name"></v-select>
 
     </div >
 
 
-    <div >
+    <div class="ss">
       <VueSlideBar v-model="value1" :min=0 :max=120
         :processStyle="{backgroundColor: slidestyle.backgroundColor}"
         :lineHeight="10"
@@ -57,28 +77,20 @@
     </div >
 
 
-    <div >
-      captureMethod<v-select v-model="capture_format" :options="capture_formats" ></v-select>
-      shootresol<v-select v-model="shootresol" :options="resols" label="name"></v-select>
+    <div class="saveopt">
       dispresol<v-select v-model="dispresol" :options="resols" label="name"></v-select>
       saveFormat<v-select v-model="save_format" :options="save_formats" ></v-select>
       saveSection<v-select v-model="save_section" :options="save_sections" ></v-select>
 
-    </div >
-
-
-    <div >
-
       subsection  <input v-model="save_subsection" >
-
-
-        <p>
+      
       <button v-on:click="pushParams()">pushparams</button>
-        </p>
     </div >
 
 
-    <div >
+
+
+    <div class="motoropt">
       <VueSlideBar v-model="motorSpdSlider" :min=-10000 :max=10000 
         :processStyle="{backgroundColor: slidestyle.backgroundColor}"
         :lineHeight="10"
@@ -94,13 +106,12 @@
       <button v-on:click="incSpeed(10)">+10</button>
       <button v-on:click="incSpeed(100)">+100</button>
         </p>
-
-    </div >
-
-
-    <div >
       <button v-on:click="pushMotorParams()">push Ctl Params</button>
+
     </div >
+
+
+</div >
   
 </div></template>
 
@@ -130,6 +141,7 @@ export default {
       brightness:50,
       saturation:0,
       contrast:0,
+      sharpness:0,
       isovalue:0,
       isovalues: [0,100,200,300,400,500,600,700,800],
       capture_format : "rgb",
@@ -139,6 +151,8 @@ export default {
       exposure_compensation: 0,
       redgain:100,
       bluegain:100,
+      digital_gain:100,
+      analog_gain:100,
       resols:[ {name:"128x64", width:128,height:64},
             {name:"480x368", width:480,height:368},
           {name:"640x480", width:640,height:480},
@@ -176,11 +190,14 @@ export default {
     bluegain:function(){this.pushParams()},
     brightness:function(){this.pushParams()},
     saturation:function(){this.pushParams()},
+    sharpness:function(){this.pushParams()},
     contrast:function(){this.pushParams()},
     exposure_compensation:function(){this.pushParams()},
 
     isovalue:function(){this.pushParams()},
     expomode:function(){this.pushParams()},
+    analog_gain:function(){this.pushParams()},
+    digital_gain:function(){this.pushParams()},
     value1:function(){this.pushParams()},
     value2:function(){this.pushParams()},
 
@@ -201,10 +218,13 @@ export default {
         isovalue:this.isovalue,
         redgain:this.redgain/100.0,
         bluegain:this.bluegain/100.0,
+        analog_gain:this.analog_gain/100.0,
+        digital_gain:this.digital_gain/100.0,
         expomode:this.expomode,
         capture_format:this.capture_format,
         brightness:this.brightness,
         saturation:this.saturation,
+        sharpness:this.sharpness,
         contrast:this.contrast,
         exposure_compensation:this.exposure_compensation,
         shootresol:this.ensureResol(this.shootresol),
@@ -269,5 +289,28 @@ input {
   color: #c7221c;
   background-color: black;
   border-color:#c7221c;
+}
+
+.parent {
+    display: grid;
+    grid-template-columns: 1fr  1fr  1fr;
+    grid-template-rows: 1fr 1fr;
+    grid-column-gap: 2px;
+    grid-row-gap: 2px;
+
+    grid-template-areas:
+      "a b c"
+      "e s f";
+}
+
+.cg { grid-area: c; }
+.bcss { grid-area: b; }
+.ie { grid-area: a; }
+.ss { grid-area: s; }
+.saveopt { grid-area: e; }
+.motoropt { grid-area: f; }
+.parent > div{
+
+    background: #0007;
 }
 </style>

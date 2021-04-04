@@ -1,6 +1,7 @@
 <template>
   <div >
-Buffer Size = {{lastStat().imgbuffcount}}
+inbuff : {{lastStat().imgbuffcount}}
+tosave : {{lastStat().tosavecount}}
   </div>
 </template>
 

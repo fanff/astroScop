@@ -1,6 +1,8 @@
 <template>
   <div >
-        {{memStats}}
+      <div v-for="ms in memStats" :key="ms.disk">
+          {{ms.disk}} : {{ms.usedpct.toFixed(1)}} % of {{ms.total.toFixed(1)}} Gig
+      </div>
   </div>
 </template>
 

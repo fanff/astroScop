@@ -25,6 +25,22 @@
                  <li>save_format: {{usedParams.save_format}}</li>
                  <li>fdest: {{usedParams.fdest}}</li>
                  <li>filename: {{usedParams.fileNameExt}}</li>
+
+
+             </ul>
+         </div>
+          <div class="div3"> 
+             <ul>
+<li>sensor_mode :{{usedParams.sensor_mode}} </li>
+<li>sharpness :{{usedParams.sharpness}} </li>
+<li>video_denoise :{{usedParams.video_denoise}} </li>
+<li>video_stabilization :{{usedParams.video_stabilization}} </li>
+<li>zoom :{{usedParams.zoom}} </li>
+<li>revision :{{usedParams.revision}} </li>
+<li>resolution :{{usedParams.resolution}} </li>
+<li>digital_gain :{{usedParams.digital_gain}} </li>
+<li>analog_gain :{{usedParams.analog_gain}} </li>
+
              </ul>
          </div>
      </div> 
@@ -73,15 +89,22 @@ export default {
 <style scoped>
 .parent {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr  1fr  1fr 0fr;
     grid-template-rows: 1fr;
     grid-column-gap: 2px;
     grid-row-gap: 2px;
+
+    grid-template-areas:
+      "a b c d";
 }
 
-.div1 { grid-area: 1 / 1 / 2 / 2; }
-.div2 { grid-area: 1 / 2 / 2 / 3; }
+.div1 { grid-area: c; }
+.div2 { grid-area: b; }
+.div3 { grid-area: a; }
+.parent > div{
 
+    background: #0007;
+}
 ul{
     list-style-type:none;
 }
