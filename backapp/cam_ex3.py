@@ -28,7 +28,7 @@ freshParams=None
 newFreshParams = True
 
 IMGBUFF = MsgBuff(2)
-TOSAVEBUFF = MsgBuff(30)
+TOSAVEBUFF = MsgBuff(300)
 
 
 serverConnection= None
