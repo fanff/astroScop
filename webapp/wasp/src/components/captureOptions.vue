@@ -165,6 +165,8 @@ export default {
           {name:"1640x1232", width:1640,height:1232, mode:0}, 
           {name:"1920x1080", width:1920,height:1080, mode:0}, 
           
+{name:"3280x2464 V2 4:3 (0)",width:3280 ,height:2464  , mode:0 }, 
+{name:"1920x1080 V2 16/9 (1)",width:1920 ,height:1080  , mode:1 }, 
 {name:"3280x2464 V2 4:3 (2)",width:3280 ,height:2464  , mode:2 }, 
 {name:"3280x2464 V2 4:3 (3)",width:3280 ,height:2464  , mode:3 }, 
 {name:"1640x1232 V2 4:3 (4) 2B",width:1640 ,height:1232  , mode:4 },
