@@ -119,7 +119,7 @@ def colorHist2(pilim):
     h2 = np.log10(h2)
     h2 = h2.reshape(3, len(h2) // 3)
 
-    return h2
+    return [[round(_,3) for _ in __] for __ in h2]
 
 def makePilIMgs(resol=(100,100)):
     """
