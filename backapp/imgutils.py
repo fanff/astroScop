@@ -116,7 +116,7 @@ def colorHist(pilim):
 
 def colorHist2(pilim):
     h2 = pilim.histogram()
-    h2 = np.log10(h2)
+    h2 = np.log10(h2+np.full_like(h2,.01))
     h2 = h2.reshape(3, len(h2) // 3)
 
     return [[round(_,3) for _ in __] for __ in h2]
