@@ -113,6 +113,14 @@ def colorHist(pilim):
         features.extend(hist.reshape(1,256).tolist())
     return features
 
+
+def colorHist2(pilim):
+    h2 = pilim.histogram()
+    h2 = np.log10(h2)
+    h2 = h2.reshape(3, len(h2) // 3)
+
+    return h2
+
 def makePilIMgs(resol=(100,100)):
     """
     make image from random numbers

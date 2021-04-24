@@ -4,6 +4,8 @@ from shutil import rmtree
 
 import PIL
 import pandas as pd
+
+import imgutils
 from imgutils import makePilIMgs, resizeImage, ImgSaver, findConfigDiff
 import numpy as np
 import os
@@ -304,6 +306,27 @@ class TC_findConfigDiff(unittest.TestCase):
                              findConfigDiff({"a": {"aname": "lol"}},
                                             {"a": {"aname": "xd"}}))
 
+class TC_histogram(unittest.TestCase):
+    def test_1_(self):
+        realimagesNames = ["moon1.jpg", "moon2.jpg", "mars1.png"]
+
+
+        realimages = [PIL.Image.open("testimgs/%s" % (_,)) for _ in realimagesNames]
+
+        res = imgutils.colorHist(realimages[0])
+
+        print(len(res))
+        print(len(res[1]))
+        print(np.mean(res[0]),np.min(res[0]),np.max(res[0]))
+
+        img:PIL.Image = realimages[0]
+
+        h2 = imgutils.colorHist2(img)
+        print(len(h2))
+
+        print(np.mean(h2[0]),np.min(h2[0]),np.max(h2[0]))
+    def test_2_(self):
+        realimagesNames = ["moon1.jpg", "moon2.jpg", "mars1.png"]
 
 
 if __name__ == '__main__':

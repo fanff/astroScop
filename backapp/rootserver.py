@@ -64,7 +64,7 @@ def makeRandomImage(width, height):
     im = Image.fromarray(arr, 'RGB')
 
     # calc hist
-    histData = imgutils.colorHist(im)
+    histData = imgutils.colorHist2(im)
 
     # convert Pil to JPG data
     b = io.BytesIO()
@@ -135,7 +135,7 @@ async def bcastMsg(data, msgtype):
 
 async def bcastImg(currentImage, usedParams):
     b64imgData = imgutils.pilimTobase64Jpg(currentImage)
-    histData = imgutils.colorHist(currentImage)
+    histData = imgutils.colorHist2(currentImage)
 
     await bcastMsg(b64imgData, "imgData")
     imgProps = {"usedParams": usedParams,
