@@ -17,13 +17,14 @@ class Test_msgbytes(unittest.TestCase):
 
 
     def test1(self):
-        res = decodeLine(b'rspd:0.00 mspd:0.00 ts:0.40 err:0.40 cmd:2.56\r\n')
+        res = decodeLine(b'rspd:0.00 mspd:0.00 ts:0.40 err:0.40 errcum:23.2 cmd:2.56\r\n')
 
         expected = {"rspd":0.0,
          "mspd":0.0,
          "ts":.40,
          "err":.40,
          "cmd":2.56,
+        "errcum":23.2
          }
 
         self.assertDictEqual(expected, res)

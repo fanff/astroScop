@@ -65,7 +65,7 @@ async def motorSerialJob(serialPort='/dev/ttyS0'):
         try:
             global serialConnection
             global serverConnection
-            with serial.Serial(serialPort, 9600, timeout=1) as ser:
+            with serial.Serial(serialPort, 115200, timeout=1) as ser:
 
                 #
 

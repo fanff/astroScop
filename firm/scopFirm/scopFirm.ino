@@ -1,15 +1,15 @@
 volatile long temp, counter = 0; //This variable will increase or decrease depending on the rotation of encoder
-
+float errorMaxCap = 15; 
 float rspd = 0 ; // read speed
 
-float target_speed = 0;  // target speed
+float target_speed = 5;  // target speed
 
 float err = 0; // PID Error
 float errprev = 0; // PID Error
 float errcum = 0; // PID Error cumulated
 
-float P = 80;  // PID P
-float I = 15 ;  // PID I
+float P = 220;  // PID P
+float I = 30 ;  // PID I
 float D = 0;  // PID D
 
 int cmd = 0;  // command to motor
@@ -40,7 +40,7 @@ byte term = 0;
 
 
 void setup() {
-  Serial.begin (9600);
+  Serial.begin (115200);
   
   pinMode(2, INPUT_PULLUP); // internal pullup input pin 2 
   pinMode(3, INPUT_PULLUP); // internal pullup input pin 3
@@ -66,7 +66,10 @@ void loop() {
 
   // cast read speed to float
   rspd = float(temp);
+  if(rspd > 10){rspd=10;}
+  if(rspd < -10){rspd=-10;}
 
+  
   // calculate mean speed.
   meanSpeed= meanSpeed*speedGamma + rspd * (1.0-speedGamma) ;
     
@@ -77,8 +80,8 @@ void loop() {
   
   // sum error
   errcum +=err;
-  if(errcum > 15){errcum=15;}
-  if(errcum < -15){errcum=-15;}
+  if(errcum > errorMaxCap){errcum=errorMaxCap;}
+  if(errcum < -errorMaxCap){errcum=-errorMaxCap;}
 
   // calculate command
   cmd = (err*P) +  ( (err-errprev)*D )  + ( errcum*I) ;
@@ -86,11 +89,13 @@ void loop() {
   // keep error 
   errprev = err;
 
+  //cmd = 100;
   //
   if (cmd>0){
-    goBackward(cmd);
+    
+    goForward(cmd);
   }else{
-    goForward(-cmd);
+    goBackward(-cmd);
   }
 
   
@@ -116,6 +121,9 @@ void printValues(){
      
     Serial.print(" err:" );
     Serial.print(err,6);
+
+    Serial.print(" errcum:" );
+    Serial.print(errcum,6);
 
     
       /*
@@ -225,8 +233,7 @@ void ai1() {
 const int DUTYLOWLIMIT = 20;
 void goForward(int duty){
 
-  if (duty<DUTYLOWLIMIT){motStop();}
-  else if (duty>255){goForward(255);}
+  if (duty>255){goForward(255);}
   else{
     analogWrite(motpin1, duty);
     digitalWrite(motpin2, LOW);
@@ -236,8 +243,7 @@ void goForward(int duty){
 }
 
 void goBackward(int duty){
-  if (duty<DUTYLOWLIMIT){motStop();}
-  else if (duty>255){goBackward(255);}
+  if (duty>255){goBackward(255);}
   else{
     digitalWrite(motpin1, LOW);
     analogWrite(motpin2, duty); 
