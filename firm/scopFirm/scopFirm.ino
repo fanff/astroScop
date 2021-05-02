@@ -2,7 +2,7 @@ volatile long temp, counter = 0; //This variable will increase or decrease depen
 float errorMaxCap = 15; 
 float rspd = 0 ; // read speed
 
-float target_speed = 5;  // target speed
+float target_speed = 0;  // target speed
 
 float err = 0; // PID Error
 float errprev = 0; // PID Error
