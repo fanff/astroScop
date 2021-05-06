@@ -96,7 +96,7 @@ defaultconfig = {
         "shootresol":{ "name":"default", "width":480,"height":368,"mode":0},
         "dispresol":{ "name":"default","width":480,"height":368,"mode":0},
 
-        "denoise":True,
+        "denoise":False,
         "capture_format":"rgb", # or yuv
         "exposure_compensation":0,
 
@@ -155,7 +155,7 @@ async def openCamera(params):
 
         
         with picamerax.PiCamera(resolution=strtResolution, 
-                framerate_range=(0.1,30),sensor_mode=sensor_mode) as camera:
+                framerate_range=(0.01,30),sensor_mode=sensor_mode) as camera:
 
             setParamsToCamera(camera, params)
 
