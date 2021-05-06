@@ -92,7 +92,7 @@
 
 
     <div class="motoropt">
-      <VueSlideBar v-model="motorSpdSlider" :min=-10000 :max=10000 
+      <VueSlideBar v-model="motorSpdSlider" :min=-15000 :max=15000 
         :processStyle="{backgroundColor: slidestyle.backgroundColor}"
         :lineHeight="10"
         :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor,color: 'black'  }"/>
@@ -164,14 +164,14 @@ export default {
           {name:"1280x720", width:1024,height:720, mode:0}, 
           {name:"1640x1232", width:1640,height:1232, mode:0}, 
           {name:"1920x1080", width:1920,height:1080, mode:0}, 
-          
+/*          
 {name:"3280x2464 V2 4:3 (0)",width:3280 ,height:2464  , mode:0 }, 
 {name:"1920x1080 V2 16/9 (1)",width:1920 ,height:1080  , mode:1 }, 
 {name:"3280x2464 V2 4:3 (2)",width:3280 ,height:2464  , mode:2 }, 
 {name:"3280x2464 V2 4:3 (3)",width:3280 ,height:2464  , mode:3 }, 
 {name:"1640x1232 V2 4:3 (4) 2B",width:1640 ,height:1232  , mode:4 },
 {name:"1640x922 V2 16:9 (5) 2B",width:1640 ,height:922  , mode:5 }, 
-          
+ */         
           {name:"1332x990 HQ 2bin", width:1332,height:990, mode:0}, 
           {name:"2028x1520 HQ 2bin", width:2028,height:1520, mode:0},
           {name:"4056x3040 HQ Nat", width:4056,height:3040, mode:0},

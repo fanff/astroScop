@@ -37,9 +37,9 @@ export default {
   watch:{
     imgStats:function(newval){
         //console.log("imgstats ",newval)
-        this.bvals=newval["histData"][0]
+        this.bvals=newval["histData"][2]
         this.gvals=newval["histData"][1]
-        this.rvals=newval["histData"][2]
+        this.rvals=newval["histData"][0]
             
         //this.vals.shift()
     }
