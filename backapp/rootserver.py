@@ -51,6 +51,9 @@ WSCAMERA = None
 WSMOTOR = None
 USERS = set()
 
+SONYCAMERA = None
+
+
 
 MOTORSTATS=MsgBuff(1000)
 CAMSTATS=MsgBuff(1000)
@@ -146,6 +149,32 @@ async def bcastImg(currentImage, usedParams):
     imgStats = {"histData": histData, }
     await bcastMsg(imgStats, "imgStats")
 
+class SonyCamera(object):
+
+
+    def __init__(self,websocket,path):
+        self.websocket = websocket
+        self.path = path
+        self.log = logging.getLogger("SonyCam")
+
+    async def handeSonyCamera(self):
+
+        while True:
+            rawData = await self.websocket.recv()
+            self.log.info("got message")
+
+            try:
+                msg = json.loads(rawData)
+                if msg["msgtype"] == "previewImage":
+                    currentImage =msg["data"]# pil image
+                    usedParams = {"what":"ever"}
+                    bcastImg(currentImage, usedParams)
+
+
+            except Exception as e:
+                self.log.exception("wtf")
+
+
 
 async def handler(websocket, path):
     global currentParams
@@ -153,6 +182,7 @@ async def handler(websocket, path):
     global currentUsedParams
     global WSCAMERA
     global WSMOTOR
+    global SONYCAMERA
     log = logging.getLogger("handler")
     log.info("client Connected on path %s", path)
 
@@ -164,6 +194,13 @@ async def handler(websocket, path):
 
         log.info("setting motor connection")
         WSMOTOR = websocket
+
+    elif "sonyCam" in path:
+
+        log.info("sony Camera Connected !")
+
+        SONYCAMERA = SonyCamera(websocket,path)
+        await SONYCAMERA.handeSonyCamera()
 
     elif "stats" in path:
         log.info("pushing stats")
@@ -359,8 +396,6 @@ async def runWebSock():
 
 def main():
 
-
-
     WSHOST = "0.0.0.0"
     WSPORT = 8765
     
@@ -372,16 +407,18 @@ def main():
     asyncio.get_event_loop().run_until_complete(srvobject) 
 
     asyncio.get_event_loop().create_task(forwardImageToWeb())
+
+
+
+
     asyncio.get_event_loop().create_task(bgjob(DISKLIST))
-    logging.info("ldkmjflmkfqd")
+
     asyncio.get_event_loop().run_forever()
 
 
 if __name__ == "__main__":
     loggingLevel = logging.INFO # 20; ERROR is 40 
     logging.basicConfig(level=loggingLevel)
-
-
     main()
     #asyncio.run(main())
 

@@ -18,7 +18,7 @@ todolists :
 
 **IMG processing**
 
-
+- [ ] 12 bits pics !
 - [x] keepstats on image params
 - [ ] locate bright pixels 
 - [ ] monitor image stats (brightness, size, weight etc..)
@@ -29,6 +29,23 @@ todolists :
 
 - [ ] add link to supervisord UI
 - [ ] display client connected and service status
+- [ ] disable auto push control
 
 - [ ] micro adjust motor speed
-- [ ]  numerical zoom and ROI
+- [ ] numerical zoom and ROI
+
+**Other**
+
+- [ ] Extra GPhoto2 connector 
+
+
+https://github.com/jbaiter/gphoto2-cffi
+
+http://gphoto.org/proj/libgphoto2/support.php
+ Sony Alpha-A7S II (Control) 	Image Capture, Trigger Capture, Liveview, Configuration 
+ 
+ 
+ 
+ 
+ 
+ 
