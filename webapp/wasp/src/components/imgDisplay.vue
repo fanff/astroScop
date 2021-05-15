@@ -1,6 +1,6 @@
 <template>
   <div >
-    <img class="viewwin" alt="camimg" v-bind:src="imgsrc()" width=100%>
+    <img class="viewwin" alt="camimg" v-bind:src="imgsrc()" width=95%>
   </div>
 
 </template>
