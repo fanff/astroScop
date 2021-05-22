@@ -141,6 +141,9 @@ def setParamsToCamera(camera,params):
 
     camera.video_denoise = params["denoise"]
 
+    if "zoom" in params["shootresol"]:
+        camera.zoom = (0.33, 0.33, 0.66, 0.66)
+
 async def openCamera(params):
     global continueLoop
     global newFreshParams
