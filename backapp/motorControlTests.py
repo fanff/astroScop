@@ -30,3 +30,14 @@ class Test_msgbytes(unittest.TestCase):
         self.assertDictEqual(expected, res)
 
 
+class Test_msgDecodeStepper(unittest.TestCase):
+
+    def test1(self):
+        line = "0FFFB70FEok"
+
+        print(line[1:-2])
+        hexnum = line[1:-2]
+
+        x = int(hexnum, 16)
+        print(x)
+
