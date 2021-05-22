@@ -28,7 +28,7 @@ freshParams=None
 newFreshParams = True
 
 IMGBUFF = MsgBuff(2)
-TOSAVEBUFF = MsgBuff(300)
+TOSAVEBUFF = MsgBuff(600)
 
 
 serverConnection= None
@@ -107,6 +107,8 @@ defaultconfig = {
         "save_format":"none",
         "save_section":"test",
         "save_subsection":"",
+        "cameraZoom":0,
+        "crop":(0,0,1,1),
 
 }
 
@@ -122,6 +124,7 @@ def cleanParams(params):
         return params
 
 def setParamsToCamera(camera,params):
+    log = logging.getLogger("setParams")
     camera.iso = params["isovalue"]
     camera.brightness = params["brightness"]
     camera.contrast = params["contrast"]
@@ -141,8 +144,10 @@ def setParamsToCamera(camera,params):
 
     camera.video_denoise = params["denoise"]
 
-    if "zoom" in params["shootresol"]:
-        camera.zoom = (0.33, 0.33, 0.66, 0.66)
+    if params["cameraZoom"] != 0:
+        camera.zoom = tuple(params["crop"])
+    else:
+        camera.zoom = (0,0,1,1)
 
 async def openCamera(params):
     global continueLoop
