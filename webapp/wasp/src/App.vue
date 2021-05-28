@@ -42,7 +42,12 @@
                 <memstats v-bind:memStats="diskUsage"></memstats>
               </div>
               <div v-show="showMotorstats"> 
+                <stepperControl v-bind:slidestyle="slidestyle"
+                v-on:newMotorParams="newMotorParams" 
+                
+                ></stepperControl>
                 <motorStats v-bind:motorStats="motorStats"></motorStats>
+
               </div>
               <div v-show="showSettings"> 
                    <captureOptions v-bind:slidestyle="slidestyle" v-on:newParams="newParams" v-on:newMotorParams="newMotorParams" ></captureOptions >
@@ -62,17 +67,18 @@ import imgProps from './components/imgProps.vue'
 import motorStats from './components/motorStats.vue'
 import memstats from './components/memoryStats.vue'
 import camStats from './components/cameraStats.vue'
+import stepperControl from './components/stepperControl.vue'
 
 export default {
   name: 'App',
   components: {
-    captureOptions,imgDisplay, imgProps,motorStats,memstats,camStats
+    captureOptions,imgDisplay, imgProps,motorStats,memstats,camStats,stepperControl
   },
   data () {
     return {
         wsconnected:false,
         wsip:"192.168.1.85",
-        ips:["localhost","192.168.1.22","192.168.0.40","192.168.1.85"],
+        ips:["localhost","192.168.1.22","192.168.0.40","192.168.1.85","192.168.1.37"],
         imgData:"",
         imgProps:{},
         imgStats:{},

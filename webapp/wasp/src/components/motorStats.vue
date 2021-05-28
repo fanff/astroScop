@@ -6,17 +6,16 @@
 
       {{ lastStat() }}
     <br/>
-    <trend :data="errvalues" :gradient="['#0F0']" auto-draw :width="histW()" :height="histH()"></trend>
   </div>
 </template>
 
 <script>
 //import Vue from "vue"
 
-import Trend from "vuetrend"
+//import Trend from "vuetrend"
 export default {
   components: {
-      Trend
+      //Trend
   },
 
   name: 'motorStats',
@@ -34,7 +33,7 @@ export default {
         //err: 
         //mspd: 
         //rspd
-        this.errvalues = this.motorStats.map(function(h){return h.data.err})
+        //this.errvalues = this.motorStats.map(function(h){return h.data.err})
         //console.log("motorStats ",this.motorStats)
     }
   },

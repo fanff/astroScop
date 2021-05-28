@@ -91,23 +91,20 @@
 
 
 
-    <div class="motoropt">
-      <VueSlideBar v-model="motorSpdSlider" :min=-15000 :max=15000 
+    <div class="zoomopt">
+        cameraZoom: {{calcCrop()}},
+      <VueSlideBar v-model="cameraZoom" :min=0 :max=20 
         :processStyle="{backgroundColor: slidestyle.backgroundColor}"
         :lineHeight="10"
         :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor,color: 'black'  }"/>
-      speed {{ calcSpeed() }}
-
-        <p>
-      <button v-on:click="incSpeed(-100)">-100</button>
-      <button v-on:click="incSpeed(-10)">-10</button>
-      <button v-on:click="incSpeed(-1)">-1</button>
-      <button v-on:click="setSpeed(0)">0</button>
-      <button v-on:click="incSpeed(1)">+1</button>
-      <button v-on:click="incSpeed(10)">+10</button>
-      <button v-on:click="incSpeed(100)">+100</button>
-        </p>
-      <button v-on:click="pushMotorParams()">push Ctl Params</button>
+      <VueSlideBar v-model="cropXloc" :min=-100 :max=100 
+        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
+        :lineHeight="10"
+        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor,color: 'black'  }"/>
+      <VueSlideBar v-model="cropYloc" :min=-100 :max=100 
+        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
+        :lineHeight="10"
+        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor,color: 'black'  }"/>
 
     </div >
 
@@ -150,8 +147,8 @@ export default {
       expomode : "off",
       expomodes: ["night","off","verylong","fixedfps"],
       exposure_compensation: 0,
-      redgain:100,
-      bluegain:100,
+      redgain:260,
+      bluegain:180,
       digital_gain:100,
       analog_gain:100,
       resols:[ 
@@ -159,7 +156,7 @@ export default {
 
 
 
-{name:"128x64", width:128,height:64, mode:0},
+        {name:"128x64", width:128,height:64, mode:0},
           {name:"640x480", width:640,height:480, mode:0},
           {name:"1280x720", width:1024,height:720, mode:0}, 
           {name:"1640x1232", width:1640,height:1232, mode:0}, 
@@ -181,8 +178,13 @@ export default {
       shootresol:{name:"128x64", width:128,height:64,mode:0},
       dispresol: {name:"128x64", width:128,height:64,mode:0},
         
+
+      cameraZoom: 0,
+      cropXloc: 0,
+      cropYloc: 0,
+
     denoise_opts:[{name:true},{name:false}],
-    denoise: [{name:true}],
+    denoise: [{name:false}],
       save_format:"none",
       save_formats:["none","tiff","bmp"],
       
@@ -219,8 +221,18 @@ export default {
     save_format:function(){this.pushParams()},
     save_section:function(){this.pushParams()},
     save_subsection:function(){this.pushParams()},
+    cameraZoom:function(){this.pushParams()},
+    cropXloc:function(){this.pushParams()},
+    cropYloc:function(){this.pushParams()},
   },
   methods: {
+      calcCrop(){
+        var shiftRatio = ((this.cameraZoom/21.0))
+
+        return [shiftRatio/2.0 + (this.cropXloc/100.0)*shiftRatio/2,
+            shiftRatio/2.0 + (this.cropYloc/100.0)*shiftRatio/2,
+            1.0-shiftRatio,1.0-shiftRatio]
+      },
     calcSpeed(){
         return ( this.motorSpdSlider / 10000)*4.0
     },
@@ -245,6 +257,8 @@ export default {
         save_format:this.save_format,
         save_section:this.save_section,
         save_subsection:this.save_subsection,
+        crop : this.calcCrop(),
+        cameraZoom : this.cameraZoom,
       }
     },
     setSpeed(val){
@@ -260,12 +274,12 @@ export default {
     pushParams(){
         var params = this.configData()
 
-        //console.log(params);
-        this.$emit("newParams",params);
+        console.log(params);
+        //this.$emit("newParams",params);
     },
     pushMotorParams(){
         var params = {k:"T",v:this.calcSpeed()}
-
+    
         //console.log(params);
         this.$emit("newMotorParams",params);
     }
@@ -321,7 +335,7 @@ input {
 .ie { grid-area: a; }
 .ss { grid-area: s; }
 .saveopt { grid-area: e; }
-.motoropt { grid-area: f; }
+.zoomopt { grid-area: f; }
 .parent > div{
 
     background: #0007;
