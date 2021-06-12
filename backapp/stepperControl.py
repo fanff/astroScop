@@ -47,12 +47,12 @@ def sendParam(serialConnection:serial.Serial,ba):
 
 MSGEARING=[
     [256, 0, 8000],
-    [128, 4000, 16000],
-    [64, 10000, 32000],
-    [32, 21000, 64000],
-    [16, 42000, 128000],
-    [8, 85000, 256000],
-    [4, 170000, 512000],
+    [128, 6000, 16000],
+    [64, 14000, 32000],
+    [32, 30000, 64000],
+    [16, 60000, 128000],
+    [8, 100000, 256000],
+    [4, 220000, 512000],
     [2, 340000, 1024000],
  ]
 
@@ -76,7 +76,19 @@ class StepperMotor():
         self.currentStepping = 256
 
         self.pinValue = 0
+
+
+
+
+        self.absoluteStep = 0
+
+        self.lastStepInfo = 0
+        self.lastStepInfoTime = time.time()
+
+
         self.autoConf()
+
+
 
     def autoConf(self):
 
@@ -86,8 +98,8 @@ class StepperMotor():
         self.setMicrosteps(256)
         time.sleep(.2)
 
-        self.pinValue = self.getDiag()[0]
-
+        self.pinValue,self.lastStepInfo= self.getDiag()
+        self.absoluteStep = 0
 
     def setSpeed(self,speed):
         #
@@ -106,15 +118,35 @@ class StepperMotor():
         return pinValue,stepCount
         """
         line = sendParam(self.sa, encodeLine("D", 0))
-
+        newdecTime = time.time()
 
         pinValue = 1 if "1" in line[0] else 0
         hexnum = line[1:-2]
         stepCount = int(hexnum)
 
+        self.recalcSpeedInfo(stepCount, newdecTime)
 
-        return pinValue,stepCount
 
+        return pinValue, stepCount
+
+    def recalcSpeedInfo(self,stepCount,newdecTime):
+        """
+
+        """
+
+        ratio = 256 / self.currentStepping
+        absoluteStepChange = (stepCount - self.lastStepInfo) * ratio
+        self.absoluteStep += absoluteStepChange
+
+        spd = absoluteStepChange / (newdecTime - self.lastStepInfoTime)
+
+        log.info("speed = %.2f, absolute = %d", spd, self.absoluteStep)
+
+        self.lastStepInfo = stepCount
+        self.lastStepInfoTime  = newdecTime
+
+    def setZeroLocation(self):
+        self.absoluteStep = 0
 
     def setTicking(self, speed):
         self.currentTicking = speed
@@ -201,7 +233,6 @@ async def handle_ctlparams(data):
     global serverConnection
 
     log = logging.getLogger("handle_ctlparams")
-    log.info("setting speed %s",data)
 
     if data["k"] == "ASC" and stepperAsc is not None:
         res = stepperAsc.setSpeed(data["v"])
@@ -223,6 +254,11 @@ async def handle_ctlparams(data):
         res = stepperDec.sendReset()
     if data["k"] == "ASC_RESET" and stepperAsc is not None:
         res = stepperAsc.sendReset()
+
+    if data["k"] == "DEC_ZERO" and stepperDec is not None:
+        res = stepperDec.setZeroLocation()
+    if data["k"] == "ASC_ZERO" and stepperAsc is not None:
+        res = stepperDec.setZeroLocation()
 
 
 
@@ -282,27 +318,12 @@ async def motorSerialJob():
 
 
     log.info("serialOpened")
-    ascStepValue = 0;
-    lastAscTime = 0;
-    decStepValue = 0;
 
     while True:
         log.info("serial check")
 
         newascStep = stepperAsc.getDiag()[1]
-        newascTime = time.time()
-
-
-        ascSpeed = (newascStep-ascStepValue)/(newascTime-lastAscTime)
-
-        log.info("ascSpeed = %.2f",ascSpeed)
-
-        lastAscTime = newascTime
-        ascStepValue = newascStep
-
-
-        stepperDec.getDiag()[1]
-
+        newdecStep = stepperDec.getDiag()[1]
 
         await asyncio.sleep(2)
 
