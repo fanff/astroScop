@@ -5,10 +5,10 @@
             <imgStats v-bind:imgStats="imgStats"></imgStats>
          </div> 
          <div class="div1">
-             <ul>
+             <ul >
                  <li>{{usedParams.triggerDateStr}}</li>
                  <li>isovalue: {{usedParams.isovalue}}</li>
-                 <li>R/B:{{usedParams.redgain.toFixed(2)}} {{usedParams.bluegain.toFixed(2)}}</li>
+                 <li v-if="usedParams.redgain">R/B:{{usedParams.redgain.toFixed(2)}} {{usedParams.bluegain.toFixed(2)}}</li>
                  <li>brt:{{usedParams.brightness}} sat:{{usedParams.saturation}}</li>
                  <li>expo:{{usedParams.exposure_compensation}} ctrst:{{usedParams.contrast}}</li>
                  <li>iso: {{usedParams.isovalue}} sharp :{{usedParams.sharpness}}</li>
@@ -18,8 +18,8 @@
 
          <div class="div2"> 
              <ul>
-                 <li>shot: {{usedParams.shootresol.name}}</li>
-                 <li>displ:{{usedParams.dispresol.name}}</li>
+                 <li v-if="usedParams.shootresol">shot: {{usedParams.shootresol.name}}</li>
+                 <li v-if="usedParams.dispresol">displ:{{usedParams.dispresol.name}}</li>
                  <li>expo_mode:{{usedParams.expomode}}</li>
                  <li>capture: {{usedParams.capture_format}}</li>
                  <li>save_format: {{usedParams.save_format}}</li>
@@ -70,7 +70,11 @@ export default {
         if(newval.usedParams===undefined){
             this.usedParams=false    
             this.usedParamsSet = false
-        }else{
+        }else if (newval.usedParams.redgain == undefined){
+            this.usedParams=false    
+            this.usedParamsSet = false
+        }
+        else{
             this.usedParams=newval.usedParams
             this.usedParamsSet = true
         }
