@@ -51,6 +51,15 @@
               </div>
               <div v-show="showSettings"> 
                    <captureOptions v-bind:slidestyle="slidestyle" v-on:newParams="newParams" v-on:newMotorParams="newMotorParams" ></captureOptions >
+                   <sonyControl 
+                        v-bind:seqinfo="sonyseqinfo" 
+                        v-bind:cameraConfig="sonycameraConfig" 
+
+                   v-on:sonyConfig_param="sonyConfig_param"
+                   v-on:sonyShoot="sonyShoot"
+                   
+                   
+                   ></sonyControl >
               </div>
           </div>
      </div> 
@@ -62,17 +71,17 @@
 
 import captureOptions from './components/captureOptions.vue'
 import imgDisplay from './components/imgDisplay.vue'
-//import imgStats from './components/imgStats.vue'
 import imgProps from './components/imgProps.vue'
 import motorStats from './components/motorStats.vue'
 import memstats from './components/memoryStats.vue'
 import camStats from './components/cameraStats.vue'
 import stepperControl from './components/stepperControl.vue'
+import sonyControl from './components/sonyControl.vue'
 
 export default {
   name: 'App',
   components: {
-    captureOptions,imgDisplay, imgProps,motorStats,memstats,camStats,stepperControl
+    captureOptions,imgDisplay, imgProps,motorStats,memstats,camStats,stepperControl,sonyControl
   },
   data () {
     return {
@@ -92,7 +101,10 @@ export default {
             backgroundColor: '#c7221c'
         },
         camStats:[],
-        motorStats:[]
+        motorStats:[],
+
+        sonyseqinfo:{},
+        sonycameraConfig:{}
     }
   },
   methods: {
@@ -126,8 +138,13 @@ export default {
 
             this.camStats.push(data);
               
+          }else if(msgtype=="sonySequenceInfo"){
+              this.sonyseqinfo = data.data;
+          }else if(msgtype=="sonyCurrentConfig"){
+            console.log("got currentConfig",msgtype,data);
+              this.sonycameraConfig = data.data;
           }else{
-            console.log(data);
+            console.log("got message",msgtype,data);
           }
       },
       onopen:function(){
@@ -154,6 +171,26 @@ export default {
             this.connection.send(JSON.stringify(msg));
           }
       },
+      sonyConfig_param:function(params){
+          if(this.wsconnected==true){
+              var msg = {
+                  msgtype:"sonyparams",
+                  data:params,
+                  }
+              this.connection.send(JSON.stringify(msg));
+             //console.log("pushed sony params",msg); 
+            }
+     },
+      sonyShoot:function(countPict){
+          if(this.wsconnected==true){
+              var msg = {
+                  msgtype:"sonyShoot",
+                  data:{"countPict":countPict},
+                  }
+            this.connection.send(JSON.stringify(msg));
+          }
+      },
+
       makeConnection:function(){
         this.connection = new WebSocket("ws://"+this.wsip+":8765");
         this.connection.onmessage = this.onmessage;
