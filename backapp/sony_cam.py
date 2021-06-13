@@ -1,3 +1,6 @@
+
+
+
 import asyncio
 import concurrent
 
@@ -62,7 +65,7 @@ def cameraAct(func):
 
 
 class CameraSequence():
-    
+
     def __init__(self):
         self.seq = []
 
@@ -103,15 +106,15 @@ async def camerahandler(my_cam):
 
 
     log = logging.getLogger("cameraHandler")
-    
-        
+
+
     while True:
 
         if len(sequence)>0:
             act,params = sequence.pop()
 
             log.info("action is %s",act)
-            #help(my_cam) 
+            #help(my_cam)
 
             if act == "capture":
                 # put my_cam.lol() in a thread
@@ -124,7 +127,7 @@ async def camerahandler(my_cam):
                 # Get a list of files on the camera
                 files = tuple(my_cam.list_all_files())"""
                 loop = asyncio.get_running_loop()
-                
+
                 with concurrent.futures.ThreadPoolExecutor() as pool:
                     result = await asyncio.get_running_loop().run_in_executor(
                             pool, lambda :call(["gphoto2","--trigger-capture"])  )
@@ -141,7 +144,7 @@ async def camerahandler(my_cam):
                 imageFileName = "img_%d.%s"%(time.time(),extension)
 
                 cstfilename = "capt0000.%s"%extension
-                
+
                 finalName = os.path.join(baseshm,imageFileName)
                 os.rename(os.path.join(baseshm,cstfilename),finalName)
 
@@ -151,9 +154,9 @@ async def camerahandler(my_cam):
                 sequence.push(("capture_cli",None))
             elif act == "set_param":
                 paramkey = params["key"]
-                paramindex = params["index"] 
-                
-                # /main/capturesettings/shutterspeed 
+                paramindex = params["index"]
+
+                # /main/capturesettings/shutterspeed
                 # /main/imgsettings/iso
 
 
@@ -239,7 +242,7 @@ async def wsclient(uri):
 
                     if msg["msgtype"] == "addInSeq":
                         sequence.append(msg["data"])
-                        sequence.push(("capture_cli",None))
+
                     else:
                         log.warning("unknown message")
 
