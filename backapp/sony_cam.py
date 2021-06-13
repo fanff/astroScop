@@ -1,6 +1,3 @@
-
-
-
 import asyncio
 import concurrent
 
@@ -17,6 +14,36 @@ import os
 import imgutils
 from rootserver import makeMessage, MsgBuff
 import datetime
+from subprocess import call
+
+
+def setParamsToCamera(camera,params):
+    log = logging.getLogger("setParams")
+    camera.iso = params["isovalue"]
+    camera.brightness = params["brightness"]
+    camera.contrast = params["contrast"]
+    camera.saturation = params["saturation"]
+    camera.sharpness = params["sharpness"]
+    camera.shutter_speed = params["shutterSpeed"]
+    camera.exposure_mode = params["expomode"]
+
+    camera.exposure_compensation = params["exposure_compensation"]
+
+    camera.awb_mode = 'off'
+    g = (params["redgain"], params["bluegain"])
+    camera.awb_gains = g
+
+    camera.digital_gain = params["digital_gain"]
+    camera.analog_gain = params["analog_gain"]
+
+    camera.video_denoise = params["denoise"]
+
+    if params["cameraZoom"] != 0:
+        camera.zoom = tuple(params["crop"])
+    else:
+        camera.zoom = (0,0,1,1)
+    #gphoto2 --set-config /main/imgsettings/iso=320000
+    #gphoto2 --set-config  gphoto2 --set-config /main/capturesettings/shutterspeed=30
 
 
 
@@ -25,14 +52,50 @@ import datetime
 def cameraAct(func):
     logth = logging.getLogger("cameraAct")
     try:
+        logth.info("hello ? ")
         return func()
     except Exception as e:
         logth.exception("wwww")
         return None
 
-sequence = []
-IMGBUFF = MsgBuff(2)
 
+
+
+class CameraSequence():
+    
+    def __init__(self):
+        self.seq = []
+
+    def pop(self):
+        a = self.seq[0]
+        self.seq = self.seq[1:]
+        return a
+
+    def push(self,a):
+        self.seq.append(a)
+    def __len__(self):
+        return len(self.seq)
+    def clear(self):
+        self.seq= []
+
+
+sequence = CameraSequence()
+IMGBUFF = MsgBuff(2)
+#sequence.push(("set_param",{"key":"/main/imgsettings/iso","index":14}))
+
+sequence.push(("set_param",{"key":"/main/capturesettings/imagequality","index":0}))
+#/main/capturesettings/imagequality
+#Label: Image Quality
+#Readonly: 0
+#Type: RADIO
+#Current: RAW
+#Choice: 0 Standard
+#Choice: 1 Fine
+#Choice: 2 Extra Fine
+#Choice: 3 RAW
+#Choice: 4 RAW+JPEG
+#END#
+sequence.push(("capture_cli",None))
 
 async def camerahandler(my_cam):
     global sequence
@@ -40,11 +103,15 @@ async def camerahandler(my_cam):
 
 
     log = logging.getLogger("cameraHandler")
-
+    
+        
     while True:
 
         if len(sequence)>0:
-            act = next(sequence)
+            act,params = sequence.pop()
+
+            log.info("action is %s",act)
+            #help(my_cam) 
 
             if act == "capture":
                 # put my_cam.lol() in a thread
@@ -57,11 +124,49 @@ async def camerahandler(my_cam):
                 # Get a list of files on the camera
                 files = tuple(my_cam.list_all_files())"""
                 loop = asyncio.get_running_loop()
+                
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    result = await asyncio.get_running_loop().run_in_executor(
+                            pool, lambda :call(["gphoto2","--trigger-capture"])  )
+                log.info("capture done! %s",result)
+
+                sequence.append("capture")
+            if act == "capture_cli":
+                baseshm = "/dev/shm/work/"
+                extension = "jpg"
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    result = await asyncio.get_running_loop().run_in_executor(
+                            pool, lambda :call(["gphoto2","--capture-image-and-download"],cwd=baseshm)  )
+
+                imageFileName = "img_%d.%s"%(time.time(),extension)
+
+                cstfilename = "capt0000.%s"%extension
+                
+                finalName = os.path.join(baseshm,imageFileName)
+                os.rename(os.path.join(baseshm,cstfilename),finalName)
+
+                log.info("file in %s",finalName)
+
+                await asyncio.sleep(2)
+                sequence.push(("capture_cli",None))
+            elif act == "set_param":
+                paramkey = params["key"]
+                paramindex = params["index"] 
+                
+                # /main/capturesettings/shutterspeed 
+                # /main/imgsettings/iso
+
+
+                log.info("setting config-index %s=%s" % (paramkey,paramindex))
 
                 with concurrent.futures.ThreadPoolExecutor() as pool:
                     result = await asyncio.get_running_loop().run_in_executor(
-                        pool, cameraAct,lambda : my_cam.capture() )
+                            pool, lambda :call(["gphoto2","--set-config-index","%s=%s"%(paramkey,paramindex) ]) )
 
+                log.info("done setting config")
+                #gphoto2 --get-config /main/status/batterylevel
+                #gphoto2 --set-config /main/imgsettings/iso=320000
+                #gphoto2 --set-config  gphoto2 --set-config 30
             elif act == "getPreview":
                 # put my_cam.lol() in a thread
 
@@ -85,29 +190,7 @@ async def cameraHold():
 
     while True:
         try:
-            import gphoto2cffi as gp
-
-            # List all attached cameras that are supported
-            cams = gp.list_cameras()
-            for cam in cams:
-                log.info(cam)
-
-            # Get a camera instance by specifying a USB bus and device number
-            bus = 4
-            device = 1
-
-            log.info("connecting to bus=%s ,  device=%s",bus, device)
-            my_cam = gp.Camera(bus=bus, device=device)
-            log.info(my_cam)
-            # Get an instance for the first supported camera
-            #my_cam = gp.Camera()
-            # or
-            #my_cam = next(gp.list_cameras())
-
-
-
             await camerahandler(my_cam)
-
 
         except Exception as e:
             log.exception("whoops ")
@@ -156,7 +239,7 @@ async def wsclient(uri):
 
                     if msg["msgtype"] == "addInSeq":
                         sequence.append(msg["data"])
-
+                        sequence.push(("capture_cli",None))
                     else:
                         log.warning("unknown message")
 

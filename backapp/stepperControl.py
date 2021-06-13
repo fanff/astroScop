@@ -313,7 +313,7 @@ async def motorSerialJob():
     log.info("port list : %s",ports)
 
 
-    stepperAsc, stepperDec = openTwoSerials("ttyACM0", "ttyACM1")
+    stepperAsc, stepperDec = openTwoSerials("/dev/ttyACM0", "/dev/ttyACM1")
 
 
     stepperAsc.setCurrent(200)
