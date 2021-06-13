@@ -104,7 +104,7 @@ export default {
         motorStats:[],
 
         sonyseqinfo:{},
-        sonycameraConfig:{}
+        sonycameraConfig:[]
     }
   },
   methods: {

@@ -61,7 +61,7 @@ export default {
   },
   name: 'sonyControl',
   props: {
-      cameraConfig:{},
+      cameraConfig:Array,
       seqinfo :Object,
   },
   data () {
