@@ -8,7 +8,7 @@ import logging
 import json
 from pprint import pprint
 
-from PIL import Image
+from PIL import Image,ImageDraw
 import numpy as np
 
 import psutil
@@ -296,6 +296,12 @@ async def handler(websocket, path):
         else:
             await unregister(websocket)
 
+
+
+def drawCircle(img_draw,w,h,pixRadius,width=2,outline = "#0F0F"): 
+    img_draw.ellipse((w-pixRadius,h-pixRadius, w+pixRadius,h+pixRadius), fill = None, outline =outline,width=2)
+
+
 async def forwardImageToWeb():
     log = logging.getLogger("fwdImage")
     global currentParams
@@ -312,6 +318,16 @@ async def forwardImageToWeb():
                 currentImage = Image.open(io.BytesIO(decoded))
                 currentUsedParams = msg["usedParams"]
                 
+
+                img_draw = ImageDraw.Draw(currentImage)
+                relw,relh = .5,.5
+                crosscenter  = currentImage.size[0]*relw,currentImage.size[1]*relh
+
+                drawCircle(img_draw,crosscenter[0],crosscenter[1],pixRadius=15,width=2,outline = "#F0F")
+                drawCircle(img_draw,crosscenter[0],crosscenter[1],pixRadius=30,width=2,outline = "#F0F")
+                drawCircle(img_draw,crosscenter[0],crosscenter[1],pixRadius=60,width=2,outline = "#F0F")
+                drawCircle(img_draw,crosscenter[0],crosscenter[1],pixRadius=120,width=2,outline = "#F0F")
+
                 log.info("image decodeTo Image dur %.2f",time.time()-strt)
                 try:
                     await bcastImg(currentImage, currentUsedParams)
