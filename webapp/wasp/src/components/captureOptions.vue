@@ -274,8 +274,8 @@ export default {
     pushParams(){
         var params = this.configData()
 
-        console.log(params);
-        //this.$emit("newParams",params);
+        //console.log(params);
+        this.$emit("newParams",params);
     },
     pushMotorParams(){
         var params = {k:"T",v:this.calcSpeed()}
