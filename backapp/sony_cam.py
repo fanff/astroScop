@@ -14,50 +14,12 @@ import os
 import imgutils
 from rootserver import makeMessage, MsgBuff
 import datetime
-from subprocess import call
-
-
-def setParamsToCamera(camera,params):
-    log = logging.getLogger("setParams")
-    camera.iso = params["isovalue"]
-    camera.brightness = params["brightness"]
-    camera.contrast = params["contrast"]
-    camera.saturation = params["saturation"]
-    camera.sharpness = params["sharpness"]
-    camera.shutter_speed = params["shutterSpeed"]
-    camera.exposure_mode = params["expomode"]
-
-    camera.exposure_compensation = params["exposure_compensation"]
-
-    camera.awb_mode = 'off'
-    g = (params["redgain"], params["bluegain"])
-    camera.awb_gains = g
-
-    camera.digital_gain = params["digital_gain"]
-    camera.analog_gain = params["analog_gain"]
-
-    camera.video_denoise = params["denoise"]
-
-    if params["cameraZoom"] != 0:
-        camera.zoom = tuple(params["crop"])
-    else:
-        camera.zoom = (0,0,1,1)
-    #gphoto2 --set-config /main/imgsettings/iso=320000
-    #gphoto2 --set-config  gphoto2 --set-config /main/capturesettings/shutterspeed=30
+from subprocess import call,run
 
 
 
-
-
-def cameraAct(func):
-    logth = logging.getLogger("cameraAct")
-    try:
-        logth.info("hello ? ")
-        return func()
-    except Exception as e:
-        logth.exception("wwww")
-        return None
-
+def findMagicExtension(baseshm):
+    return [f.split(".")[1] for f in os.listdir(baseshm) if "capt000" in f][0]
 
 
 
@@ -80,25 +42,13 @@ class CameraSequence():
 
 
 sequence = CameraSequence()
-IMGBUFF = MsgBuff(2)
-#sequence.push(("set_param",{"key":"/main/imgsettings/iso","index":14}))
 
-sequence.push(("set_param",{"key":"/main/capturesettings/imagequality","index":0}))
-#/main/capturesettings/imagequality
-#Label: Image Quality
-#Readonly: 0
-#Type: RADIO
-#Current: RAW
-#Choice: 0 Standard
-#Choice: 1 Fine
-#Choice: 2 Extra Fine
-#Choice: 3 RAW
-#Choice: 4 RAW+JPEG
-#END#
-sequence.push(("capture_cli",None))
+currentAction = None
+IMGBUFF = MsgBuff(2)
 
 async def camerahandler(my_cam):
     global sequence
+    global currentAction
     global IMGBUFF
 
 
@@ -109,74 +59,72 @@ async def camerahandler(my_cam):
 
         if len(sequence)>0:
             act,params = sequence.pop()
-
+            currentAction = act,params
             log.info("action is %s",act)
             #help(my_cam) 
 
-            if act == "capture":
-                # put my_cam.lol() in a thread
-                """# Capture an image to the camera's RAM and get its data
-                imgdata = my_cam.capture()
-
-                # Grab a preview from the camera
-                previewdata = my_cam.get_preview()
-
-                # Get a list of files on the camera
-                files = tuple(my_cam.list_all_files())"""
-                loop = asyncio.get_running_loop()
-                
+            if act == "listConfig":
                 with concurrent.futures.ThreadPoolExecutor() as pool:
                     result = await asyncio.get_running_loop().run_in_executor(
-                            pool, lambda :call(["gphoto2","--trigger-capture"])  )
-                log.info("capture done! %s",result)
+                            pool, lambda :run(["gphoto2","--list-all-config"],capture_output=True)  )
 
-                sequence.append("capture")
-            if act == "capture_cli":
-                baseshm = "/dev/shm/work/"
-                extension = "jpg"
+                result.stdout
+
+                lines = stdout.split("\n")
+            elif act == "capture_cli":
+
+
+                baseshm = "/dev/shm/buff/"
+                destshm = "/dev/shm/work/"
+                os.makedirs(baseshm,exist_ok=True)
+                os.makedirs(destshm,exist_ok=True)
+
                 with concurrent.futures.ThreadPoolExecutor() as pool:
                     result = await asyncio.get_running_loop().run_in_executor(
                             pool, lambda :call(["gphoto2","--capture-image-and-download"],cwd=baseshm)  )
 
-                imageFileName = "img_%d.%s"%(time.time(),extension)
+                try:
+                    extension = findMagicExtension(baseshm)
+                    imageFileName = "img_%d.%s"%(time.time(),extension)
 
-                cstfilename = "capt0000.%s"%extension
+                    cstfilename = "capt0000.%s"%extension
+                    
+                    finalName = os.path.join(destshm,imageFileName)
+                    os.rename(os.path.join(baseshm,cstfilename),finalName)
+
+                    log.info("file in %s",finalName)
+                except Exception as e:
+                    log.error("error capture file %s",e)
                 
-                finalName = os.path.join(baseshm,imageFileName)
-                os.rename(os.path.join(baseshm,cstfilename),finalName)
+                if params is not None:
+                    if params > 0:
+                        sequence.push(("capture_cli" ,params-1))
+                currentAction=None
 
-                log.info("file in %s",finalName)
-
-                await asyncio.sleep(2)
-                sequence.push(("capture_cli",None))
             elif act == "set_param":
-                paramkey = params["key"]
-                paramindex = params["index"] 
+                try:
+                    paramkey = params["key"]
+                    paramindex = params["index"] 
+                    
+                    # /main/capturesettings/shutterspeed 
+                    # /main/imgsettings/iso
+
+
+                    log.info("setting config-index %s=%s" % (paramkey,paramindex))
+
+                    with concurrent.futures.ThreadPoolExecutor() as pool:
+                        result = await asyncio.get_running_loop().run_in_executor(
+                                pool, lambda :call(["gphoto2","--set-config-index","%s=%s"%(paramkey,paramindex) ]) )
+
+                    log.info("done setting config")
+                    #gphoto2 --get-config /main/status/batterylevel
+                    #gphoto2 --set-config /main/imgsettings/iso=320000
+                    #gphoto2 --set-config  gphoto2 --set-config 30
+
+                except Exception as e:
+                    log.error("error setting parameter %s",e)
                 
-                # /main/capturesettings/shutterspeed 
-                # /main/imgsettings/iso
-
-
-                log.info("setting config-index %s=%s" % (paramkey,paramindex))
-
-                with concurrent.futures.ThreadPoolExecutor() as pool:
-                    result = await asyncio.get_running_loop().run_in_executor(
-                            pool, lambda :call(["gphoto2","--set-config-index","%s=%s"%(paramkey,paramindex) ]) )
-
-                log.info("done setting config")
-                #gphoto2 --get-config /main/status/batterylevel
-                #gphoto2 --set-config /main/imgsettings/iso=320000
-                #gphoto2 --set-config  gphoto2 --set-config 30
-            elif act == "getPreview":
-                # put my_cam.lol() in a thread
-
-                triggerDate = time.time()
-                with concurrent.futures.ThreadPoolExecutor() as pool:
-                    result = await asyncio.get_running_loop().run_in_executor(
-                        pool, cameraAct,lambda : my_cam.get_preview() )
-
-                IMGBUFF.stack((result, triggerDate))
-
+                currentAction=None
 
 
         else:
@@ -236,10 +184,22 @@ async def wsclient(uri):
                     # log.info("got message %s",data)
 
                     msg = json.loads(data)
+                    log.info("got a message")
 
                     if msg["msgtype"] == "addInSeq":
-                        sequence.append(msg["data"])
                         sequence.push(("capture_cli",None))
+                    elif msg["msgtype"] == "sonyparams":
+                        pdict = msg["data"]
+                        for k,v in pdict.items():
+
+                            log.info("pushing into sequennce configuration %s:%s",k,v)
+                            sequence.push(("set_param",{"key":k,"index":v}))
+                    elif msg["msgtype"] == "sonyShoot":
+                        pdict = msg["data"]
+                        
+
+                        sequence.push(("capture_cli",int(pdict["countPict"])))
+
                     else:
                         log.warning("unknown message")
 
@@ -259,6 +219,9 @@ async def wsclient(uri):
 
 
 async def cameraLoop():
+    global sequence
+    global currentAction
+    log = logging.getLogger("camloop")
     while True:
         # monitor sequence size
         # current action
@@ -270,9 +233,14 @@ async def cameraLoop():
             if serverConnection and not serverOverwhelmed:
                 await serverConnection.send(
                     makeMessage("previewImage", None, jdump=True))
-
-
-
+        
+        if serverConnection:
+            seqinfo ={"sequence":sequence.seq,"currentAction":currentAction}
+            log.info("pushing sequence Info %s",seqinfo)
+            await serverConnection.send( 
+                            makeMessage("sonySequenceInfo", seqinfo, jdump=True) )
+        else:
+            log.info("no server")
         await asyncio.sleep(1)
 
 

@@ -161,21 +161,24 @@ class SonyCamera(object):
 
         while True:
             rawData = await self.websocket.recv()
-            self.log.info("got message")
+            self.log.debug("got message")
 
             try:
                 msg = json.loads(rawData)
-                if msg["msgtype"] == "previewImage":
-                    currentImage =msg["data"]# pil image
-                    usedParams = {"what":"ever"}
-                    bcastImg(currentImage, usedParams)
+                if msg["msgtype"] == "sonySequenceInfo":
+                    self.log.debug("broadcasting seq info to clients")
+                    await bcastMsg(msg["data"], msg["msgtype"])
 
 
             except Exception as e:
                 self.log.exception("wtf")
 
 
+    async def send(self,rawdata):
+        res = await self.websocket.send(rawdata)
 
+        self.log.info("sent some data %s",res)
+        return
 async def handler(websocket, path):
     global currentParams
     global currentImage
@@ -264,6 +267,14 @@ async def handler(websocket, path):
                     # relay camera timing to users
                     CAMSTATS.stack(msg["data"])
                     await bcastMsg(msg["data"], "camTiming")
+
+
+                elif msg["msgtype"] in ["sonyparams","sonyShoot"]:
+                    log.info("pushing to camera %s",SONYCAMERA)
+                    if SONYCAMERA is not None:
+                        await SONYCAMERA.send(rawData)
+
+
                 else:
                     log.info("message type %s ?",msg["msgtype"])
 
