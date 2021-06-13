@@ -165,11 +165,9 @@ class SonyCamera(object):
 
             try:
                 msg = json.loads(rawData)
-                if msg["msgtype"] == "sonySequenceInfo":
-                    self.log.debug("broadcasting seq info to clients")
+                if msg["msgtype"] in ["sonySequenceInfo","sonyCurrentConfig"]:
+                    self.log.info("broadcasting info to clients %s",msg["msgtype"])
                     await bcastMsg(msg["data"], msg["msgtype"])
-
-
             except Exception as e:
                 self.log.exception("wtf")
 

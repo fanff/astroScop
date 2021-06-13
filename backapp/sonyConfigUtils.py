@@ -4,7 +4,7 @@ def linesToSection(data):
     sec = []
     for l in data:
 
-        if l == "END\n":
+        if l == "END":
             sections.append(sec)
             sec = []
         else:

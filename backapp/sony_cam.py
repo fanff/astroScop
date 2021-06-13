@@ -18,8 +18,8 @@ import imgutils
 from rootserver import makeMessage, MsgBuff
 import datetime
 from subprocess import call,run
-
-
+import shutil
+import sonyConfigUtils
 
 def findMagicExtension(baseshm):
     return [f.split(".")[1] for f in os.listdir(baseshm) if "capt000" in f][0]
@@ -70,15 +70,30 @@ async def camerahandler(my_cam):
                 with concurrent.futures.ThreadPoolExecutor() as pool:
                     result = await asyncio.get_running_loop().run_in_executor(
                             pool, lambda :run(["gphoto2","--list-all-config"],capture_output=True)  )
+                try:
+                    lines = result.stdout.decode("utf-8").split("\n")
 
-                result.stdout
+                    log.info("lines %s",lines) 
+                    sections = sonyConfigUtils.linesToSection(lines)
+                    sonyConfig = sorted([sonyConfigUtils.secToDict(sec) for sec in sections],key= lambda x:["key"])
 
-                lines = stdout.split("\n")
+
+                    # got confgig!!
+                    if serverConnection: 
+                        await serverConnection.send(
+                            makeMessage("sonyCurrentConfig", sonyConfig, jdump=True))
+
+                    log.info("got config !")
+                except Exception as e:
+                    log.exception("error capture file %s",e)
+                currentAction = None 
+
             elif act == "capture_cli":
 
 
                 baseshm = "/dev/shm/buff/"
-                destshm = "/dev/shm/work/"
+                destshm = "./savedimgs/sony/"
+                #imgSaver = imgutils.ImgSaver("./savedimgs/")
                 os.makedirs(baseshm,exist_ok=True)
                 os.makedirs(destshm,exist_ok=True)
 
@@ -93,8 +108,8 @@ async def camerahandler(my_cam):
                     cstfilename = "capt0000.%s"%extension
                     
                     finalName = os.path.join(destshm,imageFileName)
-                    os.rename(os.path.join(baseshm,cstfilename),finalName)
-
+                    shutil.move(os.path.join(baseshm,cstfilename),finalName)
+                    
                     log.info("file in %s",finalName)
                 except Exception as e:
                     log.error("error capture file %s",e)
@@ -127,11 +142,15 @@ async def camerahandler(my_cam):
                 except Exception as e:
                     log.error("error setting parameter %s",e)
                 
+                await asyncio.sleep(1)
+                sequence.push(("listConfig" ,None))
+                await asyncio.sleep(1)
+                sequence.push(("listConfig" ,None))
                 currentAction=None
 
 
         else:
-            await asyncio.sleep(.1)
+            await asyncio.sleep(.5)
 
 
 
