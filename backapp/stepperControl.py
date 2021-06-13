@@ -311,7 +311,10 @@ async def motorSerialJob():
     import serial.tools.list_ports as port_list
     ports = list(port_list.comports())
     log.info("port list : %s",ports)
-    stepperAsc, stepperDec = openTwoSerials("COM8", "COM3")
+
+
+    stepperAsc, stepperDec = openTwoSerials("/dev/ttyACM0", "/dev/ttyACM1")
+
 
     stepperAsc.setCurrent(200)
     stepperDec.setCurrent(200)
