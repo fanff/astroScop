@@ -1,3 +1,6 @@
+
+
+
 import asyncio
 import concurrent
 
@@ -24,7 +27,7 @@ def findMagicExtension(baseshm):
 
 
 class CameraSequence():
-    
+
     def __init__(self):
         self.seq = []
 
@@ -53,15 +56,15 @@ async def camerahandler(my_cam):
 
 
     log = logging.getLogger("cameraHandler")
-    
-        
+
+
     while True:
 
         if len(sequence)>0:
             act,params = sequence.pop()
             currentAction = act,params
             log.info("action is %s",act)
-            #help(my_cam) 
+            #help(my_cam)
 
             if act == "listConfig":
                 with concurrent.futures.ThreadPoolExecutor() as pool:
