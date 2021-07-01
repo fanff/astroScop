@@ -204,7 +204,7 @@ def openTwoSerials(lineA, lineB):
         stepperDec = stepperA
 
     stepperAsc.stepByDegree = 1800.0
-    stepperDec.stepByDegree = -2000.0
+    stepperDec.stepByDegree = -8867.0
     return stepperAsc, stepperDec
 
 
