@@ -1,6 +1,6 @@
 <template>
   <div >
-    <img class="viewwin" alt="camimg" v-bind:src="imgsrc()" width=95%>
+    <img class="viewwin" alt="camimg" v-bind:src="imgsrc()" width=95% v-on:click="imgClicked">
   </div>
 
 </template>
@@ -29,6 +29,13 @@ export default {
 
       imgsrc:function(){
         return 'data:image/jpeg;base64, '+this.imgData;
+      },
+      imgClicked:function(evt){
+
+          var pixx = (evt.pageX-evt.target.offsetLeft)/evt.target.width
+          var pixy = (evt.pageY-evt.target.offsetTop)/evt.target.height
+
+        console.log("clicked, evt",evt,pixx,pixy)
       }
   },
   watch:{

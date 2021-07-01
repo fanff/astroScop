@@ -8,17 +8,18 @@
                  <label v-if="wsconnected">
                      connected
                  </label>
-                 <label for="wsip"></label>
-                 <select name="wsip" id="cars" v-model="wsip">
-                        <option v-for="x in ips" :key="x" :value="x">
-                                {{x}}
-                        </option>
-                </select> 
+                 <label v-if="wsconnected==false">
+                     ____
+                 </label>
+
+                <button v-on:click="makeConnection()">connect</button> 
+                 <input  v-model="wsip"/>
                 <button v-on:click="onshowsettings()">Settings</button> 
                 <button v-on:click="onshowstats()">Stats</button> 
                 <button v-on:click="onshowmotorstats()">MotorStats</button> 
                 <button v-on:click="onshowCamStats()">Caminfo</button> 
                 <button v-on:click="onshowMemStats()">MemStats</button> 
+                <button v-on:click="onconfigLayerSwitch()">ConfigLayer</button> 
              </div>
                 
          </div>
@@ -28,7 +29,7 @@
                v-bind:imgData="imgData"></imgDisplay >
              </div>
           </div>
-          <div class="div3"> 
+          <div class="configLayer" v-show="configLayerActive"> 
               <div v-show="showStats"> 
                 <imgProps  v-bind:imgStats="imgStats" v-bind:imgProps="imgProps"></imgProps>
               </div>
@@ -86,8 +87,11 @@ export default {
   data () {
     return {
         wsconnected:false,
-        wsip:"192.168.1.85",
-        ips:["localhost","192.168.1.22","192.168.0.40","192.168.1.85","192.168.1.37"],
+        wsip:"localhost",
+        
+
+        configLayerActive:true, 
+        
         imgData:"",
         imgProps:{},
         imgStats:{},
@@ -129,8 +133,9 @@ export default {
             while(this.motorStats.length>=100){
               this.motorStats.shift();
             }
-
             this.motorStats.push(data);
+
+
           }else if(msgtype=="camTiming"){
             while(this.camStats.length>=100){
               this.camStats.shift();
@@ -198,6 +203,9 @@ export default {
         this.connection.onclose = this.onclose;
 
       },
+      onconfigLayerSwitch:function(){
+        this.configLayerActive = !this.configLayerActive;
+      },
       onshowmotorstats:function(){
         this.showMotorstats = !this.showMotorstats;
       },
@@ -216,13 +224,12 @@ export default {
 
   },
   watch: {
-      wsip:function(){
-          console.log("resetConnection")
-        this.wsconnected=false;
-        this.connection.close();
-        //this.makeConnection();
-        setTimeout(this.makeConnection,1000);
-      }
+      //wsip:function(){
+      //  console.log("resetConnection")
+      //  this.wsconnected=false;
+      //  this.connection.close();
+      //  setTimeout(this.makeConnection,1000);
+      //}
   },
   mounted: function(){
       this.makeConnection();
@@ -261,7 +268,7 @@ export default {
 
 .div1 { grid-area: a; }
 .div2 { grid-area: b; }
-.div3 { grid-area: b; }
+.configLayer { grid-area: b; }
 
 /*
 .div1 { grid-area: 1 / 1 / 2 / 2; }
