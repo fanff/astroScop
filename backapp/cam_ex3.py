@@ -27,7 +27,7 @@ freshParams=None
 
 newFreshParams = True
 
-IMGBUFF = MsgBuff(2)
+IMGBUFF = MsgBuff(1)
 TOSAVEBUFF = MsgBuff(600)
 
 
