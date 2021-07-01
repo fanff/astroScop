@@ -303,7 +303,7 @@ async def motorJob(uri):
 
 @infiniteRetry(rerunTiming=15)
 async def motorSerialJob():
-
+    global serverConnection
     global stepperAsc
     global stepperDec
 
@@ -327,6 +327,8 @@ async def motorSerialJob():
 
         newascStep = stepperAsc.getDiag()[1]
         newdecStep = stepperDec.getDiag()[1]
+        if serverConnection:
+
 
         await asyncio.sleep(2)
 

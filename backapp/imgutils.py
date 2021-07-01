@@ -153,7 +153,7 @@ else:
 
 
 def findConfigDiff(existing,newp):
-
+    """find diff in configuration dicts"""
     newVals = {}
     for k,v in newp.items():
         if k in existing:
@@ -165,4 +165,9 @@ def findConfigDiff(existing,newp):
         else:
             newVals[k] = v
     return newVals
+
+
+
+
+
 
