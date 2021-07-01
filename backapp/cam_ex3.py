@@ -35,7 +35,55 @@ serverConnection= None
 serverOverwhelmed = False
 
 
+
+async def continuousRecording(camera,analyzer):
+    global continueLoop
+    global newFreshParams
+
+    try:
+        while continueLoop:
+            camera.wait_recording(.001)
+            await asyncio.sleep(.001)
+
+
+            if newFreshParams:
+                newps = cleanParams(freshParams)
+
+
+                alldiff = imgutils.findConfigDiff(analyser.params, newps)
+
+                if "shootresol" in alldiff or "capture_format" in alldiff:
+                    continueLoop = False
+                else:
+                    analyzer.params = newps
+                    log.info("new Fresh Params: %s",newFreshParams)
+                    setParamsToCamera(camera,newps)
+                    newFreshParams = False
+
+
+    except Exception as e:
+        log.exception("error in recording")
+    finally:
+        camera.stop_recording()
+
+
+
+class JPGOutput(object):
+    def __init__(self,params):
+        pass
+        self.params = {}
+
+    def write(self, buf):
+        triggerDate = time.time()
+        if buf.startswith(b'\xff\xd8'):
+            p = self.params.copy()
+
+            IMGBUFF.stack((buf,p,triggerDate))
+
 class MyAnalyser(PiRGBAnalysis):
+    """
+    RGB Analyser
+    """
     def __init__(self, camera,params):
         super(MyAnalyser, self).__init__(camera)
         self.params = params
@@ -159,45 +207,33 @@ async def openCamera(params):
         shootresol = params["shootresol"]
         strtResolution = (shootresol["width"],shootresol["height"])
         sensor_mode = shootresol["mode"] 
-        log.info("OpeningCamera at resol %s (%s)",strtResolution,sensor_mode)
-
+        capture_format = params["capture_format"]
         
+        log.info("OpeningCamera at resol %s mode:%s capture_format: %s",strtResolution,
+                sensor_mode,
+                capture_format)
+
+
         with picamerax.PiCamera(resolution=strtResolution, 
                 framerate_range=(0.01,30),sensor_mode=sensor_mode) as camera:
 
             setParamsToCamera(camera, params)
+            
+            if params["capture_format"] == "rgb":
+                with MyAnalyser(camera,params) as analyzer:
 
-            with MyAnalyser(camera,params) as analyzer:
-                camera.start_recording(analyzer, 'rgb')
-                try:
-                    while continueLoop:
-                        camera.wait_recording(.001)
-                        await asyncio.sleep(.001)
+                    camera.start_recording(analyzer, 'rgb')
+                    await continuousRecording(camera,analyser)
 
+            elif params["capture_format"] == "jpeg":
 
-                        if newFreshParams:
-                            newps = cleanParams(freshParams)
+                out = JPGOutput(params)
+                camera.start_recording(out, 'mjpeg')
 
-
-                            alldiff = imgutils.findConfigDiff(params, newps)
-
-                            if "shootresol" in alldiff:
-                                continueLoop = False
-                            else:
-                                analyzer.params = newps
-                                log.info("new Fresh Params: %s",newFreshParams)
-                                setParamsToCamera(camera,newps)
-                                newFreshParams = False
-
-
-                except Exception as e:
-                    log.exception("error in recording")
-                finally:
-                    camera.stop_recording()
-
+                await continuousRecording(camera,out)
 
     except Exception as e:
-        log.exception("whoaaw error ")
+        log.exception("whoaaw error %s"%str(e))
 
 async def cameraLoop():
 
@@ -289,9 +325,9 @@ async def bgjob():
             if len(IMGBUFF.content)>0:
                 a,params, triggerDate = IMGBUFF.pop()
 
-                save_format = params["save_format"]
-                save_section = params["save_section"]
-                save_subsection = params["save_subsection"]
+                save_format = params.get("save_format","none")
+                save_section = params.get("save_section","work")
+                save_subsection = params.get("save_subsection","")
 
                 if save_format not in ["none"]:
                     TOSAVEBUFF.stack((a,params, triggerDate))
@@ -300,7 +336,12 @@ async def bgjob():
                     log.debug("bgjob with %s objects in buff ",len(IMGBUFF.content))
                     log.debug("will send to server")
 
-                    image = Image.fromarray(a)
+                    if "capture_format" in params and params["capture_format"]=="jpeg":
+                        image = Image.fromstring(a)
+                    else:
+
+
+                        image = Image.fromarray(a)
 
                     if serverConnection :
                         try:
