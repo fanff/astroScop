@@ -177,6 +177,8 @@ class SonyCamera(object):
 
         self.log.info("sent some data %s",res)
         return
+
+
 async def handler(websocket, path):
     global currentParams
     global currentImage

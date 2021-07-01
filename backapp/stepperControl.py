@@ -12,6 +12,9 @@ import datetime
 import time
 import struct
 
+from rootserver import makeMessage
+
+
 def encodeLine(pname:str, value):
     # encode pname,value
     ba = pname.encode("ASCII")+bytearray(struct.pack("f", value))
@@ -68,8 +71,12 @@ def getRangesForSpeed(speed):
 
 class StepperMotor():
 
-    def __init__(self,sa):
+    def __init__(self,sa,stepByDegree=1000):
         self.log = logging.getLogger("stepper")
+
+        self.stepByDegree = stepByDegree
+
+
         self.sa:serial.Serial = sa
         self.maxSpeed= 8000
         self.currentTicking=0
@@ -107,9 +114,12 @@ class StepperMotor():
             self.setTicking(speed/(256.0/self.currentStepping))
 
         else:
-            newMS = max(getRangesForSpeed(speed))
-            self.setMicrosteps(newMS)
 
+            newMS = max(getRangesForSpeed(speed))
+
+            #self.setTicking(0)
+            self.getDiag()
+            self.setMicrosteps(newMS)
             return self.setTicking(speed / (256.0 / newMS))
 
 
@@ -144,6 +154,15 @@ class StepperMotor():
 
         self.lastStepInfo = stepCount
         self.lastStepInfoTime  = newdecTime
+
+    def getDegRot(self)->float:
+        """
+        :return: rotation in degree
+        """
+
+        return float(self.lastStepInfo)/self.stepByDegree
+
+
 
     def setZeroLocation(self):
         self.absoluteStep = 0
@@ -330,7 +349,14 @@ async def motorSerialJob():
         if serverConnection:
 
 
-        await asyncio.sleep(2)
+
+            await serverConnection.send(
+                makeMessage("motorInfo", {
+                    "ascStep":newascStep,
+                    "decStep":newdecStep
+                }, jdump=True))
+
+        await asyncio.sleep(.2)
 
 
 async def main():
