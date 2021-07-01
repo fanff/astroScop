@@ -50,7 +50,7 @@ async def continuousRecording(camera,analyzer):
                 newps = cleanParams(freshParams)
 
 
-                alldiff = imgutils.findConfigDiff(analyser.params, newps)
+                alldiff = imgutils.findConfigDiff(analyzer.params, newps)
 
                 if "shootresol" in alldiff or "capture_format" in alldiff:
                     continueLoop = False
@@ -70,8 +70,10 @@ async def continuousRecording(camera,analyzer):
 
 class JPGOutput(object):
     def __init__(self,params):
-        pass
-        self.params = {}
+        self.params = params
+
+
+        self.lastInfo=[]
 
     def write(self, buf):
         triggerDate = time.time()
@@ -223,7 +225,7 @@ async def openCamera(params):
                 with MyAnalyser(camera,params) as analyzer:
 
                     camera.start_recording(analyzer, 'rgb')
-                    await continuousRecording(camera,analyser)
+                    await continuousRecording(camera,analyzer)
 
             elif params["capture_format"] == "jpeg":
 
@@ -334,13 +336,18 @@ async def bgjob():
 
                 if not serverOverwhelmed:
                     log.debug("bgjob with %s objects in buff ",len(IMGBUFF.content))
+                    log.debug("params : %s",params)
                     log.debug("will send to server")
-
+                    
                     if "capture_format" in params and params["capture_format"]=="jpeg":
-                        image = Image.fromstring(a)
+
+                        w= params["shootresol"]["width"]
+                        h = params["shootresol"]["height"]
+
+                        #image = Image.frombytes('RGB', (w,h), a,decoder_name="jpeg")
+                        import io
+                        image = Image.open(io.BytesIO(a))
                     else:
-
-
                         image = Image.fromarray(a)
 
                     if serverConnection :

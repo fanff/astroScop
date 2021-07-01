@@ -146,7 +146,7 @@ class StepperMotor(object):
 
         spd = absoluteStepChange / (newdecTime - self.lastStepInfoTime)
 
-        log.info("speed = %.2f, absolute = %d", spd, self.absoluteStep)
+        #log.info("speed = %.2f, absolute = %d", spd, self.absoluteStep)
 
         self.lastStepInfo = stepCount
         self.lastStepInfoTime = newdecTime
@@ -156,10 +156,11 @@ class StepperMotor(object):
         :return: rotation in degree
         """
 
-        return float(self.lastStepInfo) / self.stepByDegree
+        return float(self.absoluteStep) / self.stepByDegree
 
     def setZeroLocation(self):
         self.absoluteStep = 0
+        #self.lastStepInfo = 0
 
     def setTicking(self, speed):
         self.currentTicking = speed
@@ -226,20 +227,17 @@ def infiniteRetry(rerunTiming):
 
 stepperAsc: StepperMotor = None
 stepperDec: StepperMotor = None
-serialConnection = None
 serverConnection = None
 
 
 @infiniteRetry(rerunTiming=2)
 async def bgjob():
-    global serialConnection
 
     global serverConnection
 
     log = logging.getLogger("bgjob")
 
-    log.info("serverConnection :%s", serverConnection)
-    log.info("serialConnection :%s", serialConnection)
+    log.debug("serverConnection :%s", serverConnection)
 
 
 async def handle_ctlparams(data):
@@ -270,14 +268,16 @@ async def handle_ctlparams(data):
         res = stepperAsc.sendReset()
 
     if data["k"] == "DEC_ZERO" and stepperDec is not None:
+
+        log.info("set DEC_ZERO")
         res = stepperDec.setZeroLocation()
     if data["k"] == "ASC_ZERO" and stepperAsc is not None:
-        res = stepperDec.setZeroLocation()
+        log.info("set ASC_ZERO")
+        res = stepperAsc.setZeroLocation()
 
 
 @infiniteRetry(rerunTiming=2)
 async def motorJob(uri):
-    global serialConnection
 
     global serverConnection
 
@@ -330,7 +330,7 @@ async def motorSerialJob():
     log.info("serialOpened")
 
     while True:
-        log.info("serial check")
+        log.debug("serial check")
 
         newascStep = stepperAsc.getDiag()[1]
         newdecStep = stepperDec.getDiag()[1]
