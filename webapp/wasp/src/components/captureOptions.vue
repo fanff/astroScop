@@ -105,7 +105,22 @@
         :processStyle="{backgroundColor: slidestyle.backgroundColor}"
         :lineHeight="10"
         :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor,color: 'black'  }"/>
+        
 
+    cameraMarker: {{ markXloc}},{{markYloc}}
+
+      <VueSlideBar v-model="markXloc" :min=-100 :max=100 
+        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
+        :lineHeight="10"
+        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor,color: 'black'  }"/>
+      <VueSlideBar v-model="markYloc" :min=-100 :max=100 
+        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
+        :lineHeight="10"
+        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor,color: 'black'  }"/>
+        <form>
+          <label for="cameraWfov">cameraFov:</label><br>
+          <input type="number" name="cameraWfov" v-model="cameraWfov"><br>
+        </form> 
     </div >
 
 
@@ -153,22 +168,11 @@ export default {
       analog_gain:100,
       resols:[ 
 
-
-
-
-        {name:"128x64", width:128,height:64, mode:0},
+          {name:"128x64", width:128,height:64, mode:0},
           {name:"640x480", width:640,height:480, mode:0},
           {name:"1280x720", width:1024,height:720, mode:0}, 
           {name:"1640x1232", width:1640,height:1232, mode:0}, 
           {name:"1920x1080", width:1920,height:1080, mode:0}, 
-/*          
-{name:"3280x2464 V2 4:3 (0)",width:3280 ,height:2464  , mode:0 }, 
-{name:"1920x1080 V2 16/9 (1)",width:1920 ,height:1080  , mode:1 }, 
-{name:"3280x2464 V2 4:3 (2)",width:3280 ,height:2464  , mode:2 }, 
-{name:"3280x2464 V2 4:3 (3)",width:3280 ,height:2464  , mode:3 }, 
-{name:"1640x1232 V2 4:3 (4) 2B",width:1640 ,height:1232  , mode:4 },
-{name:"1640x922 V2 16:9 (5) 2B",width:1640 ,height:922  , mode:5 }, 
- */         
           {name:"1332x990 HQ 2bin", width:1332,height:990, mode:0}, 
           {name:"2028x1520 HQ 2bin", width:2028,height:1520, mode:0},
           {name:"4056x3040 HQ Nat", width:4056,height:3040, mode:0},
@@ -182,6 +186,9 @@ export default {
       cameraZoom: 0,
       cropXloc: 0,
       cropYloc: 0,
+      markXloc: 0,
+      markYloc: 0,
+      cameraWfov: 22.5,
 
     denoise_opts:[{name:true},{name:false}],
     denoise: [{name:false}],
@@ -224,6 +231,8 @@ export default {
     cameraZoom:function(){this.pushParams()},
     cropXloc:function(){this.pushParams()},
     cropYloc:function(){this.pushParams()},
+    markXloc:function(){this.pushParams()},
+    markYloc:function(){this.pushParams()},
   },
   methods: {
       calcCrop(){
@@ -259,6 +268,11 @@ export default {
         save_subsection:this.save_subsection,
         crop : this.calcCrop(),
         cameraZoom : this.cameraZoom,
+        markXloc:this.markXloc/100.0,
+        markYloc:this.markYloc/100.0,
+        cameraWfov:this.cameraWfov,
+
+
       }
     },
     setSpeed(val){

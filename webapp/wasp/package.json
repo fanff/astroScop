@@ -10,9 +10,11 @@
   "dependencies": {
     "core-js": "^3.6.4",
     "mqtt": "^3.0.0",
+    "npm": "^7.19.0",
     "vue": "^2.6.11",
     "vue-select": "^3.10.7",
     "vue-slide-bar": "^1.2.0",
+    "vuejs": "^3.0.1",
     "vuetrend": "^0.3.4"
   },
   "devDependencies": {
