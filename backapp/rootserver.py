@@ -57,7 +57,7 @@ SONYCAMERA = None
 
 MOTORSTATS=MsgBuff(1000)
 CAMSTATS=MsgBuff(1000)
-IMGSFORWEB=MsgBuff(2)
+IMGSFORWEB=MsgBuff(1)
 
 overWhelmed = False
 
