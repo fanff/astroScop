@@ -15,25 +15,27 @@ import struct
 from rootserver import makeMessage
 
 
-def encodeLine(pname:str, value):
+def encodeLine(pname: str, value):
     # encode pname,value
-    ba = pname.encode("ASCII")+bytearray(struct.pack("f", value))
-    ba +="#".encode("ASCII")
-    #b: bytes
-    #hexmess = " ".join([hex(b) for b in bytearray(struct.pack("f", value))])
-    #decmess = " ".join(["%d" % b for b in bytearray(struct.pack("f", value))])
-#
-    #logging.info(hexmess)
+    ba = pname.encode("ASCII") + bytearray(struct.pack("f", value))
+    ba += "#".encode("ASCII")
+    # b: bytes
+    # hexmess = " ".join([hex(b) for b in bytearray(struct.pack("f", value))])
+    # decmess = " ".join(["%d" % b for b in bytearray(struct.pack("f", value))])
+    #
+    # logging.info(hexmess)
     logging.debug(ba)
     return ba
 
-def decodeStepperLine(line:bytearray) -> str:
+
+def decodeStepperLine(line: bytearray) -> str:
     """
     """
-    linestr = line.decode("ascii").replace("\r\n","")
+    linestr = line.decode("ascii").replace("\r\n", "")
     return linestr
 
-def sendParam(serialConnection:serial.Serial,ba):
+
+def sendParam(serialConnection: serial.Serial, ba):
     """
     send params to arduino
     """
@@ -47,8 +49,7 @@ def sendParam(serialConnection:serial.Serial,ba):
     return decodeStepperLine(line)
 
 
-
-MSGEARING=[
+MSGEARING = [
     [256, 0, 8000],
     [128, 6000, 16000],
     [64, 14000, 32000],
@@ -57,73 +58,69 @@ MSGEARING=[
     [8, 100000, 256000],
     [4, 220000, 512000],
     [2, 340000, 1024000],
- ]
+]
 
 MSGEARINGDICT = {
-    ms:[minx,maxx] for ms ,minx,maxx in MSGEARING
+    ms: [minx, maxx] for ms, minx, maxx in MSGEARING
 }
 
+
 def getRangesForSpeed(speed):
-    return [k for k,(minx,maxx) in MSGEARINGDICT.items() if abs(speed)<=maxx and abs(speed)>=minx]
+    return [k for k, (minx, maxx) in MSGEARINGDICT.items() if abs(speed) <= maxx and abs(speed) >= minx]
 
 
 
+class StepperMotor(object):
 
-class StepperMotor():
-
-    def __init__(self,sa,stepByDegree=1000):
+    def __init__(self, sa, stepByDegree=1000):
         self.log = logging.getLogger("stepper")
 
         self.stepByDegree = stepByDegree
 
-
-        self.sa:serial.Serial = sa
-        self.maxSpeed= 8000
-        self.currentTicking=0
+        self.sa: serial.Serial = sa
+        self.maxSpeed = 8000
+        self.currentTicking = 0
         self.currentStepping = 256
 
         self.pinValue = 0
-
-
-
 
         self.absoluteStep = 0
 
         self.lastStepInfo = 0
         self.lastStepInfoTime = time.time()
 
-
         self.autoConf()
-
-
 
     def autoConf(self):
 
-        self.setTicking( 0)
+        self.setTicking(0)
         time.sleep(.2)
 
         self.setMicrosteps(256)
         time.sleep(.2)
 
-        self.pinValue,self.lastStepInfo= self.getDiag()
+        self.pinValue, self.lastStepInfo = self.getDiag()
         self.absoluteStep = 0
 
-    def setSpeed(self,speed):
+    def setSpeed(self, speed:float):
+        """
+        :param speed: in tick by sec
+
+        """
         #
         if self.currentStepping in getRangesForSpeed(speed):
-            self.setTicking(speed/(256.0/self.currentStepping))
+            self.setTicking(speed / (256.0 / self.currentStepping))
 
         else:
 
             newMS = max(getRangesForSpeed(speed))
 
-            #self.setTicking(0)
+            # self.setTicking(0)
             self.getDiag()
             self.setMicrosteps(newMS)
             return self.setTicking(speed / (256.0 / newMS))
 
-
-    def getDiag(self)->Tuple[int,int ]:
+    def getDiag(self) -> Tuple[int, int]:
         """
         return pinValue,stepCount
         """
@@ -136,10 +133,9 @@ class StepperMotor():
 
         self.recalcSpeedInfo(stepCount, newdecTime)
 
-
         return pinValue, stepCount
 
-    def recalcSpeedInfo(self,stepCount,newdecTime):
+    def recalcSpeedInfo(self, stepCount, newdecTime):
         """
 
         """
@@ -153,16 +149,14 @@ class StepperMotor():
         log.info("speed = %.2f, absolute = %d", spd, self.absoluteStep)
 
         self.lastStepInfo = stepCount
-        self.lastStepInfoTime  = newdecTime
+        self.lastStepInfoTime = newdecTime
 
-    def getDegRot(self)->float:
+    def getDegRot(self) -> float:
         """
         :return: rotation in degree
         """
 
-        return float(self.lastStepInfo)/self.stepByDegree
-
-
+        return float(self.lastStepInfo) / self.stepByDegree
 
     def setZeroLocation(self):
         self.absoluteStep = 0
@@ -174,28 +168,26 @@ class StepperMotor():
     def sendReset(self):
         return sendParam(self.sa, encodeLine("R", 0))
 
-    def setMicrosteps(self,ms):
+    def setMicrosteps(self, ms):
         self.currentStepping = ms
         return sendParam(self.sa, encodeLine("M", ms))
 
-    def setCurrent(self,current):
+    def setCurrent(self, current):
         return sendParam(self.sa, encodeLine("I", current))
 
-
-
     def stopNow(self):
-        
-        return self.setTicking(0)
 
+        return self.setTicking(0)
 
     def close(self):
 
         self.sa.close()
+
     def infoString(self):
-        return "MS: %s, TC: %s"%(self.currentStepping,self.currentTicking)
+        return "MS: %s, TC: %s" % (self.currentStepping, self.currentTicking)
 
 
-def openTwoSerials(lineA,lineB):
+def openTwoSerials(lineA, lineB):
     import serial
     log.info("opening StepperA")
     stepperA = StepperMotor(serial.Serial(lineA, 115200))
@@ -210,14 +202,17 @@ def openTwoSerials(lineA,lineB):
         stepperAsc = stepperB
         stepperDec = stepperA
 
-    return stepperAsc,stepperDec
+    stepperAsc.stepByDegree = 1800.0
+    stepperDec.stepByDegree = -2000.0
+    return stepperAsc, stepperDec
+
 
 def infiniteRetry(rerunTiming):
     def dec(f):
-        async def wrap(*args,**kwargs):
+        async def wrap(*args, **kwargs):
             while True:
                 try:
-                    await f(*args,**kwargs)
+                    await f(*args, **kwargs)
                     await asyncio.sleep(rerunTiming)
                 except Exception as e:
                     log.exception("infiniteRetry")
@@ -225,13 +220,15 @@ def infiniteRetry(rerunTiming):
                     await asyncio.sleep(rerunTiming)
 
         return wrap
+
     return dec
 
 
-stepperAsc:StepperMotor = None
-stepperDec:StepperMotor = None
+stepperAsc: StepperMotor = None
+stepperDec: StepperMotor = None
 serialConnection = None
 serverConnection = None
+
 
 @infiniteRetry(rerunTiming=2)
 async def bgjob():
@@ -241,11 +238,11 @@ async def bgjob():
 
     log = logging.getLogger("bgjob")
 
-    log.info("serverConnection :%s",serverConnection)
+    log.info("serverConnection :%s", serverConnection)
     log.info("serialConnection :%s", serialConnection)
 
-async def handle_ctlparams(data):
 
+async def handle_ctlparams(data):
     global stepperAsc
     global stepperDec
 
@@ -255,19 +252,17 @@ async def handle_ctlparams(data):
 
     if data["k"] == "ASC" and stepperAsc is not None:
         res = stepperAsc.setSpeed(data["v"])
-        log.info("setting ASC speed done: %s",res)
+        log.info("setting ASC speed done: %s", res)
     if data["k"] == "DEC" and stepperDec is not None:
         res = stepperDec.setSpeed(data["v"])
-        log.info("setting Dec speed done: %s",res)
-
+        log.info("setting Dec speed done: %s", res)
 
     if data["k"] == "DEC_CURR" and stepperDec is not None:
         res = stepperDec.setCurrent(int(data["v"]))
-        log.info("setting Dec current done: %s",res)
+        log.info("setting Dec current done: %s", res)
     if data["k"] == "ASC_CURR" and stepperAsc is not None:
         res = stepperAsc.setCurrent(int(data["v"]))
-        log.info("setting ASC current done: %s",res)
-
+        log.info("setting ASC current done: %s", res)
 
     if data["k"] == "DEC_RESET" and stepperDec is not None:
         res = stepperDec.sendReset()
@@ -280,17 +275,13 @@ async def handle_ctlparams(data):
         res = stepperDec.setZeroLocation()
 
 
-
 @infiniteRetry(rerunTiming=2)
 async def motorJob(uri):
     global serialConnection
 
     global serverConnection
 
-
-
     log = logging.getLogger("motorJob")
-
 
     try:
         log.info("connecting to %s", uri)
@@ -304,7 +295,7 @@ async def motorJob(uri):
 
                 msg = json.loads(data)
                 log.info("got message %s", msg)
-                msgType=msg["msgtype"]
+                msgType = msg["msgtype"]
 
                 if msgType == "ctlparams":
                     await handle_ctlparams(msg)
@@ -317,7 +308,7 @@ async def motorJob(uri):
         serverConnection = None
 
     finally:
-        serverConnection=None
+        serverConnection = None
 
 
 @infiniteRetry(rerunTiming=15)
@@ -329,15 +320,12 @@ async def motorSerialJob():
     log = logging.getLogger("motorSerialJob")
     import serial.tools.list_ports as port_list
     ports = list(port_list.comports())
-    log.info("port list : %s",ports)
-
+    log.info("port list : %s", ports)
 
     stepperAsc, stepperDec = openTwoSerials("/dev/ttyACM0", "/dev/ttyACM1")
 
-
     stepperAsc.setCurrent(200)
     stepperDec.setCurrent(200)
-
 
     log.info("serialOpened")
 
@@ -346,24 +334,25 @@ async def motorSerialJob():
 
         newascStep = stepperAsc.getDiag()[1]
         newdecStep = stepperDec.getDiag()[1]
+        newascDeg = stepperAsc.getDegRot()
+        newdecDeg = stepperDec.getDegRot()
+
         if serverConnection:
-
-
-
             await serverConnection.send(
                 makeMessage("motorInfo", {
-                    "ascStep":newascStep,
-                    "decStep":newdecStep
+                    "ascStep": newascStep,
+                    "decStep": newdecStep,
+                    "newascDeg": newascDeg,
+                    "newdecDeg": newdecDeg
                 }, jdump=True))
 
         await asyncio.sleep(.2)
 
 
 async def main():
+    task1 = asyncio.create_task(motorJob('ws://localhost:8765/motor'))
 
-    task1 = asyncio.create_task( motorJob('ws://localhost:8765/motor'))
-
-    task2 = asyncio.create_task( bgjob())
+    task2 = asyncio.create_task(bgjob())
     task3 = asyncio.create_task(motorSerialJob())
 
     await task1
@@ -371,12 +360,8 @@ async def main():
     await task3
 
 
-if __name__=="__main__":
-
-
+if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-
-
 
     log = logging.getLogger(__name__)
     asyncio.run(main())
@@ -409,10 +394,4 @@ if __name__=="__main__":
         time.sleep(1)
 """
 
-
-    #stepperAsc.stopNow()
-
-
-
-
-
+    # stepperAsc.stopNow()

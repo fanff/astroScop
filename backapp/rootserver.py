@@ -320,15 +320,20 @@ async def forwardImageToWeb():
                 currentImage = Image.open(io.BytesIO(decoded))
                 currentUsedParams = msg["usedParams"]
                 
-
+                # draw overlay
                 img_draw = ImageDraw.Draw(currentImage)
-                relw,relh = .5,.5
-                crosscenter  = currentImage.size[0]*relw,currentImage.size[1]*relh
 
-                drawCircle(img_draw,crosscenter[0],crosscenter[1],pixRadius=15,width=2,outline = "#F0F")
-                drawCircle(img_draw,crosscenter[0],crosscenter[1],pixRadius=30,width=2,outline = "#F0F")
-                drawCircle(img_draw,crosscenter[0],crosscenter[1],pixRadius=60,width=2,outline = "#F0F")
-                drawCircle(img_draw,crosscenter[0],crosscenter[1],pixRadius=120,width=2,outline = "#F0F")
+                cameraWFov = currentUsedParams.get("cameraWFov",22.5)
+                relw,relh = currentUsedParams.get("cameraWFov",.5),currentUsedParams.get("cameraWFov",.5)
+                crosscenter  = currentImage.size[0]*relw , currentImage.size[1]*relh
+
+                pixRadius = (currentImage.size[0] * 2.0 )/cameraWFov
+                if pixRadius <1.0:
+                    pixRadius = 1.0
+                drawCircle(img_draw,crosscenter[0],crosscenter[1],pixRadius=int(pixRadius),width=2,outline = "#F0F")
+                drawCircle(img_draw,crosscenter[0],crosscenter[1],pixRadius=int(pixRadius*2),width=2,outline = "#F0F")
+                drawCircle(img_draw,crosscenter[0],crosscenter[1],pixRadius=int(pixRadius*5),width=2,outline = "#F0F")
+
 
                 log.info("image decodeTo Image dur %.2f",time.time()-strt)
                 try:
