@@ -246,6 +246,7 @@ async def handler(websocket, path):
                         log.info("setting new params but no camera detected")
                 elif msg["msgtype"] == "ctlparams":
                     # 
+                    log.info("ctlParams %s",msg)
                     if WSMOTOR is not None:
                         await WSMOTOR.send(rawData)
                     else:
@@ -260,6 +261,7 @@ async def handler(websocket, path):
 
 
                 elif msg["msgtype"] == "motorInfo":
+
                     MOTORSTATS.stack(msg["data"])
                     await bcastMsg(msg["data"], "motorInfo")
 
@@ -321,21 +323,31 @@ async def forwardImageToWeb():
                 currentUsedParams = msg["usedParams"]
                 
                 # draw overlay
+
+                log.debug("drawing overlay on image with params %s",currentUsedParams)
                 img_draw = ImageDraw.Draw(currentImage)
 
-                cameraWFov = currentUsedParams.get("cameraWFov",22.5)
-                relw,relh = currentUsedParams.get("cameraWFov",.5),currentUsedParams.get("cameraWFov",.5)
-                crosscenter  = currentImage.size[0]*relw , currentImage.size[1]*relh
+                cameraWFov = float(currentUsedParams.get("cameraWfov",22.5))
+                
+                relw = .5+currentUsedParams.get("markXloc",.0)/2.0
+                relh = .5 +currentUsedParams.get("markYloc",.0)/2.0
 
-                pixRadius = (currentImage.size[0] * 2.0 )/cameraWFov
+                crosscenter  = currentImage.size[0]*relw , currentImage.size[1]*relh
+                
+
+                degByPix = cameraWFov/currentImage.size[0] 
+
+                
+                pixRadius = 1.0/degByPix
                 if pixRadius <1.0:
                     pixRadius = 1.0
+                log.debug("with w:%.2f,h:%.2f,  pix:%.1f",relw,relh,pixRadius)
                 drawCircle(img_draw,crosscenter[0],crosscenter[1],pixRadius=int(pixRadius),width=2,outline = "#F0F")
                 drawCircle(img_draw,crosscenter[0],crosscenter[1],pixRadius=int(pixRadius*2),width=2,outline = "#F0F")
                 drawCircle(img_draw,crosscenter[0],crosscenter[1],pixRadius=int(pixRadius*5),width=2,outline = "#F0F")
 
 
-                log.info("image decodeTo Image dur %.2f",time.time()-strt)
+                log.debug("image decodeTo Image dur %.2f",time.time()-strt)
                 try:
                     await bcastImg(currentImage, currentUsedParams)
                 except Exception as e:
