@@ -15,6 +15,7 @@ from PIL import Image
 import json
 import os
 import imgutils
+from jobutils import formatstr, parse_args
 from rootserver import makeMessage, MsgBuff
 import datetime
 from subprocess import call,run
@@ -266,8 +267,10 @@ async def cameraLoop():
         await asyncio.sleep(1)
 
 
-async def main():
-    task1 = asyncio.create_task(wsclient('ws://localhost:8765/sonyCam'))
+async def main(args):
+    uri = 'ws://localhost:8765/sonyCam' if args.uri is None else args.uri
+
+    task1 = asyncio.create_task(wsclient(uri))
     task2 = asyncio.create_task(cameraLoop())
 
     taskCH = asyncio.create_task(cameraHold())
@@ -277,7 +280,7 @@ async def main():
 
 
 if __name__ == "__main__":
-    formatstr = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    args = parse_args()
     # formatter = logging.Formatter(formatstr)
     logging.basicConfig(level=logging.INFO, format=formatstr)
 

@@ -246,7 +246,7 @@ async def handler(websocket, path):
                         await SONYCAMERA.send(rawData)
 
                 elif msg["msgtype"] in ["gyrodata"]:
-                    log.info("gotdata", msg)
+                    log.info("got gyro data %s", msg)
                 else:
                     log.info("message type %s ?",msg["msgtype"])
 

@@ -97,3 +97,5 @@ def parse_args():
     parser.add_argument("--uri", help="uri",type=str)
     args = parser.parse_args()
     return args
+
+formatstr = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
