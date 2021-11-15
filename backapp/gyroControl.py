@@ -7,7 +7,7 @@ import numpy as np
 import websockets
 from websockets import WebSocketClientProtocol
 
-from jobutils import clientConnection, Jobstate
+from jobutils import clientConnection, Jobstate, parse_args
 from stepperControl import infiniteRetry
 
 
@@ -74,11 +74,10 @@ async def bgjob(state:Jobstate):
 
 
 
-async def main():
+async def main(args):
+    uri = 'ws://localhost:8765/gyro' if args.uri is None else args.uri
     state = Jobstate()
-
-    task1 = asyncio.create_task(gyroJob('ws://localhost:8765/gyro',state))
-
+    task1 = asyncio.create_task(gyroJob(uri,state))
     task2 = asyncio.create_task(bgjob(state))
     #task3 = asyncio.create_task(motorSerialJob())
 
@@ -87,8 +86,12 @@ async def main():
     #await task3
 
 
+
 if __name__ == "__main__":
+    args = parse_args()
+
+
     logging.basicConfig(level=logging.INFO)
 
     log = logging.getLogger(__name__)
-    asyncio.run(main())
+    asyncio.run(main(args))

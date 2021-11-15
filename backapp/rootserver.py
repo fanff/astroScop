@@ -187,7 +187,8 @@ async def handler(websocket, path):
         except Exception as e:
             log.info("error with stats")
         return
-
+    elif "gyro" in path:
+        pass
 
     else:
         # register as a new user

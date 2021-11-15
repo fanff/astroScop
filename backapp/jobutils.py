@@ -88,3 +88,12 @@ class MsgBuff():
     def saveAsJson(self,jsonName):
         with open(jsonName,"w") as fou:
             json.dump(self.content,fou)
+
+
+def parse_args():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--uri", help="uri",type=str)
+    args = parser.parse_args()
+    return args
