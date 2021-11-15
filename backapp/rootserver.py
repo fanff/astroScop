@@ -189,8 +189,6 @@ async def handler(websocket, path):
         return
 
 
-
-
     else:
         # register as a new user
         await register(websocket)
@@ -246,7 +244,8 @@ async def handler(websocket, path):
                     if SONYCAMERA is not None:
                         await SONYCAMERA.send(rawData)
 
-
+                elif msg["msgtype"] in ["gyrodata"]:
+                    log.info("gotdata", msg)
                 else:
                     log.info("message type %s ?",msg["msgtype"])
 
