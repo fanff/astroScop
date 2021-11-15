@@ -40,7 +40,7 @@ async def gyroJob(uri,state):
 async def bgjob(state:Jobstate):
 
     logging.info("state %s",state)
-    return
+
     import adafruit_mpu6050
     import board
 
