@@ -487,5 +487,5 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO,format=formatstr)
 
     log = logging.getLogger(__name__)
-    asyncio.run(main())
+    asyncio.run(main(args))
 
