@@ -19,6 +19,7 @@ from PIL import Image
 import json
 import os
 import imgutils
+from jobutils import parse_args, formatstr
 from rootserver import makeMessage, MsgBuff
 import datetime
 
@@ -468,10 +469,9 @@ async def savingJob():
             await asyncio.sleep(sleepdur)
 
 
-async def main():
-
-
-    task1 = asyncio.create_task(wsclient('ws://localhost:8765/camera'))
+async def main(args):
+    uri = 'ws://localhost:8765/camera' if args.uri is None else args.uri
+    task1 = asyncio.create_task(wsclient(uri))
     task2 = asyncio.create_task( cameraLoop())
     task4 = asyncio.create_task( savingJob())
     task3 = asyncio.create_task( bgjob())
@@ -483,8 +483,7 @@ async def main():
 
 
 if __name__ == "__main__":
-    formatstr = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    #formatter = logging.Formatter(formatstr)
+    args = parse_args()
     logging.basicConfig(level=logging.INFO,format=formatstr)
 
     log = logging.getLogger(__name__)
