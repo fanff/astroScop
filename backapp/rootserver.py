@@ -33,7 +33,7 @@ WSMOTOR = None
 USERS = set()
 
 SONYCAMERA = None
-
+latestgyroData = None
 
 
 MOTORSTATS=MsgBuff(1000)
@@ -247,6 +247,8 @@ async def handler(websocket, path):
 
                 elif msg["msgtype"] in ["gyrodata"]:
                     log.info("got gyro data %s", msg)
+                    global latestgyroData
+                    latestgyroData = msg
                 else:
                     log.info("message type %s ?",msg["msgtype"])
 
@@ -314,6 +316,30 @@ async def forwardImageToWeb():
         drawCircle(img_draw,crosscenter[0],crosscenter[1],pixRadius=int(pixRadius),width=2,outline = "#F0F")
         drawCircle(img_draw,crosscenter[0],crosscenter[1],pixRadius=int(pixRadius*2),width=2,outline = "#F0F")
         drawCircle(img_draw,crosscenter[0],crosscenter[1],pixRadius=int(pixRadius*5),width=2,outline = "#F0F")
+
+        if latestgyroData is not None:
+            pitch = latestgyroData["data"]["pitch"]
+            rot = 90.0-latestgyroData["data"]["roll"]
+            log.info("rotation by %.2f", rot)
+            currentImage = currentImage.rotate(rot, center=crosscenter, fillcolor="black")
+
+            img_draw = ImageDraw.Draw(currentImage)
+
+            pixByDeg = currentImage.size[1]/cameraWFov
+            for pitchline_angle in range(-90,90,5):
+                if abs( pitch-pitchline_angle) < 20:
+                    diffpix = (pitchline_angle-pitch)*pixByDeg
+
+                    drawCircle(img_draw, crosscenter[0], crosscenter[1]+diffpix, pixRadius=2, width=2,
+                               outline="#F0F")
+
+                    img_draw.text(xy=(crosscenter[0], crosscenter[1]+diffpix),
+                             text= "%s"%pitchline_angle,
+                             fill="#F0F")
+
+                    img_draw.line(xy=[(crosscenter[0]-50, crosscenter[1]+diffpix),
+                                      (crosscenter[0]+50, crosscenter[1]+diffpix)
+                                      ],fill="#F0F", width=2)
 
 
         log.debug("image decodeTo Image dur %.2f",time.time()-strt)

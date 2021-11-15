@@ -67,7 +67,7 @@ async def bgjob(state:Jobstate):
 
         logging.info("%s",data)
         await state.send_msg("gyrodata",data)
-        await asyncio.sleep(.5)
+        await asyncio.sleep(.1)
 
 
 
