@@ -51,8 +51,11 @@ async def bgjob(state:Jobstate):
 
         ac = mpu.acceleration
         x,y,z = -ac[1],ac[0],  ac[2]
+
         gyronew = np.array([x,y,z])
-        gyro = gyronew * .05 + gyro* .95
+        gyro = (gyronew * .05) + (gyro * .95)
+
+        x,y,z = gyro
         # print("Temperature: %.2f C"%mpu.temperature)
         elev, az = np.rad2deg(cart2sph(gyro)[1:])
         # elev = 90-elev
