@@ -46,12 +46,13 @@ async def bgjob(state:Jobstate):
 
     i2c = board.I2C()  # uses board.SCL and board.SDA
     mpu = adafruit_mpu6050.MPU6050(i2c)
-
+    gyro = np.array([0,0,1])
     while True:
 
         ac = mpu.acceleration
         x,y,z = -ac[1],ac[0],  ac[2]
-        gyro = np.array([x,y,z])
+        gyronew = np.array([x,y,z])
+        gyro = gyronew * .05 + gyro* .95
         # print("Temperature: %.2f C"%mpu.temperature)
         elev, az = np.rad2deg(cart2sph(gyro)[1:])
         # elev = 90-elev
