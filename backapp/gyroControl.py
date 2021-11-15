@@ -57,8 +57,8 @@ async def bgjob(state:Jobstate):
         # elev = 90-elev
 
 
-        roll = atan2(y, z) * 57.3;
-        pitch = atan2((- x), sqrt(y**2 + z**2)) * 57.3;
+        roll = np.arctan2(y, z) * 57.3
+        pitch = np.arctan2((- x), np.sqrt(y**2 + z**2)) * 57.3
 
         data = {"elev":elev,"az":az,
                 "roll": roll, "pitch": pitch,}
