@@ -53,7 +53,9 @@ async def bgjob(state:Jobstate):
         x,y,z = -ac[1],ac[0],  ac[2]
 
         gyronew = np.array([x,y,z])
-        gyro = (gyronew * .05) + (gyro * .95)
+
+        damping = .9
+        gyro = (gyronew * (1.0-damping)) + (gyro * damping)
 
         x,y,z = gyro
         # print("Temperature: %.2f C"%mpu.temperature)
