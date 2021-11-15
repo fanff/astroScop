@@ -60,11 +60,13 @@ async def bgjob(state:Jobstate):
         roll = atan2(y, z) * 57.3;
         pitch = atan2((- x), sqrt(y**2 + z**2)) * 57.3;
 
+        data = {"elev":elev,"az":az,
+                "roll": roll, "pitch": pitch,}
 
-        await state.send_msg("gyrodata",{"elev":elev,"az":az,
-                                         "roll": roll, "pitch": pitch,
 
-                                         })
+
+        logging.info("%s",data)
+        await state.send_msg("gyrodata",data)
         await asyncio.sleep(.5)
 
 

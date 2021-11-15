@@ -20,7 +20,7 @@ import shutil
 
 import imgutils
 # from backapp import imgutils
-from jobutils import MsgBuff, makeMessage
+from jobutils import MsgBuff, makeMessage, infiniteRetry
 
 DEBUGMODE = 0
 currentImage = None
@@ -274,66 +274,60 @@ async def handler(websocket, path):
 def drawCircle(img_draw,w,h,pixRadius,width=2,outline = "#0F0F"): 
     img_draw.ellipse((w-pixRadius,h-pixRadius, w+pixRadius,h+pixRadius), fill = None, outline =outline,width=2)
 
-
+@infiniteRetry(.02)
 async def forwardImageToWeb():
     log = logging.getLogger("fwdImage")
     global currentParams
     global WSMOTOR
     global WSCAMERA
     global USERS
-    while True:
+
+    inbuff= len(IMGSFORWEB.content)
+    if inbuff >0:
+        msg = IMGSFORWEB.pop()
+        strt = time.time()
+        decoded = base64.b64decode(msg["imageData"].encode("utf-8"))
+        currentImage = Image.open(io.BytesIO(decoded))
+        currentUsedParams = msg["usedParams"]
+
+        # draw overlay
+
+        log.debug("drawing overlay on image with params %s",currentUsedParams)
+        img_draw = ImageDraw.Draw(currentImage)
+
+        cameraWFov = float(currentUsedParams.get("cameraWfov",22.5))
+
+        relw = .5+currentUsedParams.get("markXloc",.0)/2.0
+        relh = .5 +currentUsedParams.get("markYloc",.0)/2.0
+
+        crosscenter  = currentImage.size[0]*relw , currentImage.size[1]*relh
+
+
+        degByPix = cameraWFov/currentImage.size[0]
+
+
+        pixRadius = 1.0/degByPix
+        if pixRadius <1.0:
+            pixRadius = 1.0
+        log.debug("with w:%.2f,h:%.2f,  pix:%.1f",relw,relh,pixRadius)
+        drawCircle(img_draw,crosscenter[0],crosscenter[1],pixRadius=int(pixRadius),width=2,outline = "#F0F")
+        drawCircle(img_draw,crosscenter[0],crosscenter[1],pixRadius=int(pixRadius*2),width=2,outline = "#F0F")
+        drawCircle(img_draw,crosscenter[0],crosscenter[1],pixRadius=int(pixRadius*5),width=2,outline = "#F0F")
+
+
+        log.debug("image decodeTo Image dur %.2f",time.time()-strt)
         try:
-            inbuff= len(IMGSFORWEB.content)
-            if inbuff >0:
-                msg = IMGSFORWEB.pop()
-                strt = time.time()
-                decoded = base64.b64decode(msg["imageData"].encode("utf-8"))
-                currentImage = Image.open(io.BytesIO(decoded))
-                currentUsedParams = msg["usedParams"]
-                
-                # draw overlay
-
-                log.debug("drawing overlay on image with params %s",currentUsedParams)
-                img_draw = ImageDraw.Draw(currentImage)
-
-                cameraWFov = float(currentUsedParams.get("cameraWfov",22.5))
-                
-                relw = .5+currentUsedParams.get("markXloc",.0)/2.0
-                relh = .5 +currentUsedParams.get("markYloc",.0)/2.0
-
-                crosscenter  = currentImage.size[0]*relw , currentImage.size[1]*relh
-                
-
-                degByPix = cameraWFov/currentImage.size[0] 
-
-                
-                pixRadius = 1.0/degByPix
-                if pixRadius <1.0:
-                    pixRadius = 1.0
-                log.debug("with w:%.2f,h:%.2f,  pix:%.1f",relw,relh,pixRadius)
-                drawCircle(img_draw,crosscenter[0],crosscenter[1],pixRadius=int(pixRadius),width=2,outline = "#F0F")
-                drawCircle(img_draw,crosscenter[0],crosscenter[1],pixRadius=int(pixRadius*2),width=2,outline = "#F0F")
-                drawCircle(img_draw,crosscenter[0],crosscenter[1],pixRadius=int(pixRadius*5),width=2,outline = "#F0F")
-
-
-                log.debug("image decodeTo Image dur %.2f",time.time()-strt)
-                try:
-                    await bcastImg(currentImage, currentUsedParams)
-                except Exception as e:
-                    log.exception("error broadcasting image")
-
-                dur = time.time()-strt
-                log.info("sending to all clients dur %.2f",dur)
-                
-                await asyncio.sleep(.05)
-                if len(IMGSFORWEB.content)<inbuff:
-                    await overwhelmedEnd()
-            else:
-
-                await asyncio.sleep(.02)
+            await bcastImg(currentImage, currentUsedParams)
         except Exception as e:
-            log.exception("error")
-            await asyncio.sleep(.02)
+            log.exception("error broadcasting image")
+
+        dur = time.time()-strt
+        log.info("sending to all clients dur %.2f",dur)
+
+        await asyncio.sleep(.05)
+        if len(IMGSFORWEB.content)<inbuff:
+            await overwhelmedEnd()
+
 
 async def bgjob(diskList):
     log = logging.getLogger("bgjob")
