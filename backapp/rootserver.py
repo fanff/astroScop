@@ -20,26 +20,7 @@ import shutil
 
 import imgutils
 # from backapp import imgutils
-
-
-class MsgBuff():
-    def __init__(self,maxcount):
-        self.maxcount = maxcount
-        self.content= []
-    def stack(self,data):
-        while len(self.content)>=self.maxcount:
-            self.content = self.content[1:]
-        self.content.append(data)
-
-
-    def pop(self):
-        poped = self.content[0]
-        self.content = self.content[1:]
-        return poped
-    def saveAsJson(self,jsonName):
-        with open(jsonName,"w") as fou:
-            json.dump(self.content,fou)
-
+from jobutils import MsgBuff, makeMessage
 
 DEBUGMODE = 0
 currentImage = None
@@ -100,17 +81,6 @@ async def overwhelmedEnd():
 
 
 
-
-def makeMessage(msgtype,data,jdump=False):
-    """
-    {"msttype": "string",
-    "data": }
-    """
-    msg ={"msgtype": msgtype, "data": data}
-    if jdump:
-        return json.dumps(msg)
-    else:
-        return msg
 
 
 

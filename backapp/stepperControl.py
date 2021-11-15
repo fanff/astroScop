@@ -12,6 +12,7 @@ import datetime
 import time
 import struct
 
+from jobutils import infiniteRetry, clientConnection
 from rootserver import makeMessage
 
 
@@ -208,21 +209,7 @@ def openTwoSerials(lineA, lineB):
     return stepperAsc, stepperDec
 
 
-def infiniteRetry(rerunTiming):
-    def dec(f):
-        async def wrap(*args, **kwargs):
-            while True:
-                try:
-                    await f(*args, **kwargs)
-                    await asyncio.sleep(rerunTiming)
-                except Exception as e:
-                    log.exception("infiniteRetry")
-                    log.info("sleep for 5")
-                    await asyncio.sleep(rerunTiming)
 
-        return wrap
-
-    return dec
 
 
 stepperAsc: StepperMotor = None
@@ -240,7 +227,7 @@ async def bgjob():
     log.debug("serverConnection :%s", serverConnection)
 
 
-async def handle_ctlparams(data):
+async def handle_ctlparams(msgType,data,websocket):
     global stepperAsc
     global stepperDec
 
@@ -279,7 +266,7 @@ async def handle_ctlparams(data):
 @infiniteRetry(rerunTiming=2)
 async def motorJob(uri):
 
-    global serverConnection
+
 
     log = logging.getLogger("motorJob")
 
@@ -292,7 +279,6 @@ async def motorJob(uri):
             serverConnection = websocket
             while True:
                 data = await websocket.recv()
-
                 msg = json.loads(data)
                 log.info("got message %s", msg)
                 msgType = msg["msgtype"]
