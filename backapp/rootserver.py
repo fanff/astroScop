@@ -1,263 +1,238 @@
+"""
+WebSocket hub: UI ↔ rootserver ↔ camera / motor.
+
+Camera params are validated with CameraSettings before forward.
+Preview frames are passthrough (no JPEG decode/overlay on the event loop).
+"""
+
+from __future__ import annotations
+
 import asyncio
-import os
-
-import websockets
-import time
-import numpy as np
-import logging
 import json
-from pprint import pprint
-
-from PIL import Image,ImageDraw
-import numpy as np
+import logging
+import os
+import shutil
+import time
 
 import psutil
-import io
-import base64
-import copy
+import websockets
 
-import shutil
-
-import imgutils
-# from backapp import imgutils
 from jobutils import MsgBuff, makeMessage, infiniteRetry
+from ws_messages import (
+    hist_data_from_spectrum,
+    parse_cam_timing,
+    parse_srcimage,
+    try_normalize_params,
+)
 
 DEBUGMODE = 0
 currentImage = None
 currentUsedParams = None
 
-currentParams = None
+currentParams = None  # canonical CameraSettings.to_wire_dict() or None
 
 WSCAMERA = None
 WSMOTOR = None
 USERS = set()
 
-SONYCAMERA = None
 latestgyroData = None
 
-
-MOTORSTATS=MsgBuff(1000)
-CAMSTATS=MsgBuff(1000)
-IMGSFORWEB=MsgBuff(1)
+MOTORSTATS = MsgBuff(1000)
+CAMSTATS = MsgBuff(1000)
+IMGSFORWEB = MsgBuff(1)
 
 overWhelmed = False
 
-def makeRandomImage(width, height):
-    # random Pil Image
-    arr = np.random.randint(0, 255, (width, height, 3))
-    im = Image.fromarray(arr, 'RGB')
+DISKLIST = ["/", "/dev/shm"]
 
-    # calc hist
-    histData = imgutils.colorHist2(im)
 
-    # convert Pil to JPG data
-    b = io.BytesIO()
-
-    im.save(b, format="JPEG")
-
-    data = b.getvalue()
-
-    return data, histData
-
+def reset_hub_state():
+    """Clear module globals (tests)."""
+    global currentImage, currentUsedParams, currentParams
+    global WSCAMERA, WSMOTOR, latestgyroData, overWhelmed
+    currentImage = None
+    currentUsedParams = None
+    currentParams = None
+    WSCAMERA = None
+    WSMOTOR = None
+    latestgyroData = None
+    overWhelmed = False
+    USERS.clear()
+    MOTORSTATS.content.clear()
+    CAMSTATS.content.clear()
+    IMGSFORWEB.content.clear()
 
 
 async def overwhelmedStart():
+    """Edge-triggered: notify camera that the hub dropped a preview frame."""
     global overWhelmed
-
     global WSCAMERA
 
+    if overWhelmed:
+        return
     overWhelmed = True
     if WSCAMERA:
-        await WSCAMERA.send(makeMessage("serverOverwhelmed",True,jdump=True))
+        await WSCAMERA.send(makeMessage("serverOverwhelmed", True, jdump=True))
+
 
 async def overwhelmedEnd():
+    """Edge-triggered: hub queue drained; camera may emit again."""
     global overWhelmed
-
     global WSCAMERA
 
+    if not overWhelmed:
+        return
     overWhelmed = False
     if WSCAMERA:
-        await WSCAMERA.send(makeMessage("serverOverwhelmed",False,jdump=True))
-
-
-
-
-
+        await WSCAMERA.send(makeMessage("serverOverwhelmed", False, jdump=True))
 
 
 async def register(websocket):
     USERS.add(websocket)
-async def unregister(websocket):
-    USERS.remove(websocket)
 
+
+async def unregister(websocket):
+    USERS.discard(websocket)
 
 
 async def bcastMsg(data, msgtype):
-    """
-    broadcast to all web users 
-    """
+    """Broadcast to all web users."""
     log = logging.getLogger("bcastcastMsg")
-    if len(USERS)>0:
+    if len(USERS) > 0:
         strSend = time.time()
-        message = makeMessage(msgtype,data,jdump=True)
-        log.debug("broadcasting message size %s to %s users", len(message),len(USERS))
-        await asyncio.wait([user.send(message) for user in USERS])
-
-        endSend = time.time()
-        log.debug("sendDur: %s", endSend - strSend)
-
-async def bcastImg(currentImage, usedParams):
-    b64imgData = imgutils.pilimTobase64Jpg(currentImage)
-    histData = imgutils.colorHist2(currentImage)
-
-    await bcastMsg(b64imgData, "imgData")
-    imgProps = {"usedParams": usedParams,
-                "triggerDate": "no info",
-                }
-    await bcastMsg(imgProps, "imgProps")
-
-    imgStats = {"histData": histData, }
-    await bcastMsg(imgStats, "imgStats")
-
-class SonyCamera(object):
+        message = makeMessage(msgtype, data, jdump=True)
+        log.debug("broadcasting message size %s to %s users", len(message), len(USERS))
+        await asyncio.gather(
+            *[user.send(message) for user in USERS],
+            return_exceptions=True,
+        )
+        log.debug("sendDur: %s", time.time() - strSend)
 
 
-    def __init__(self,websocket,path):
-        self.websocket = websocket
-        self.path = path
-        self.log = logging.getLogger("SonyCam")
+async def bcastPassthroughFrame(image_data: str, used_params, spectrum=None):
+    """
+    Forward camera JPEG + metadata without re-encoding.
 
-    async def handeSonyCamera(self):
-
-        while True:
-            rawData = await self.websocket.recv()
-            self.log.debug("got message")
-
-            try:
-                msg = json.loads(rawData)
-                if msg["msgtype"] in ["sonySequenceInfo","sonyCurrentConfig"]:
-                    self.log.info("broadcasting info to clients %s",msg["msgtype"])
-                    await bcastMsg(msg["data"], msg["msgtype"])
-            except Exception as e:
-                self.log.exception("wtf")
-
-
-    async def send(self,rawdata):
-        res = await self.websocket.send(rawdata)
-
-        self.log.info("sent some data %s",res)
-        return
-
-
-async def handler(websocket, path):
-    global currentParams
-    global currentImage
+    UI msgtypes kept for compatibility: imgData / imgProps / imgStats.
+    """
     global currentUsedParams
+    currentUsedParams = used_params
+
+    await bcastMsg(image_data, "imgData")
+    await bcastMsg(
+        {"usedParams": used_params, "triggerDate": "no info"},
+        "imgProps",
+    )
+    img_stats = {}
+    if spectrum is not None:
+        try:
+            img_stats["histData"] = hist_data_from_spectrum(spectrum)
+            img_stats["spectrum"] = (
+                spectrum.model_dump() if hasattr(spectrum, "model_dump") else spectrum
+            )
+        except Exception:
+            logging.getLogger("bcastFrame").exception("spectrum → histData failed")
+    await bcastMsg(img_stats, "imgStats")
+
+
+async def handler(websocket, path=None):
+    global currentParams
     global WSCAMERA
     global WSMOTOR
-    global SONYCAMERA
+    global latestgyroData
     log = logging.getLogger("handler")
+    # websockets>=13: path is on websocket.request; older APIs passed path as arg
+    if path is None:
+        path = getattr(getattr(websocket, "request", None), "path", "") or ""
     log.info("client Connected on path %s", path)
 
     if "camera" in path:
         WSCAMERA = websocket
         if currentParams:
-            await WSCAMERA.send(json.dumps({"msgtype":"params","data":currentParams}))
+            await WSCAMERA.send(params_to_wire_from_dict(currentParams))
     elif "motor" in path:
-
         log.info("setting motor connection")
         WSMOTOR = websocket
-
-    elif "sonyCam" in path:
-
-        log.info("sony Camera Connected !")
-
-        SONYCAMERA = SonyCamera(websocket,path)
-        await SONYCAMERA.handeSonyCamera()
-
     elif "stats" in path:
         log.info("pushing stats")
         try:
             data = scanDiskUsage(DISKLIST)
-            await websocket.send(makeMessage("sysInfo",data,jdump=True))
-
+            await websocket.send(makeMessage("sysInfo", data, jdump=True))
             await websocket.send(makeMessage("motorstats", MOTORSTATS.content, jdump=True))
-            await websocket.send(makeMessage("camstats", CAMSTATS.content,  jdump=True))
-
-        except Exception as e:
+            await websocket.send(makeMessage("camstats", CAMSTATS.content, jdump=True))
+        except Exception:
             log.info("error with stats")
         return
     elif "gyro" in path:
         pass
-
     else:
-        # register as a new user
         await register(websocket)
-
-
 
     try:
         while True:
             rawData = await websocket.recv()
             try:
                 msg = json.loads(rawData)
-                if msg["msgtype"] == "params":
-                    currentParams = msg["data"]
+                msgtype = msg.get("msgtype")
+
+                if msgtype == "params":
+                    settings = try_normalize_params(msg.get("data"))
+                    if settings is None:
+                        continue
+                    currentParams = settings.to_wire_dict()
+                    wire = params_to_wire_from_dict(currentParams)
                     if WSCAMERA:
-                        log.info("sending params to camera")
-
+                        log.info("sending validated params to camera")
                         try:
-                            await WSCAMERA.send(rawData)
-                        except Exception as e:
+                            await WSCAMERA.send(wire)
+                        except Exception:
                             log.warning("could not send data to WS CAMERA")
-
                     else:
                         log.info("setting new params but no camera detected")
-                elif msg["msgtype"] == "ctlparams":
-                    # 
-                    log.info("ctlParams %s",msg)
+
+                elif msgtype == "ctlparams":
+                    log.info("ctlParams %s", msg)
                     if WSMOTOR is not None:
                         await WSMOTOR.send(rawData)
                     else:
                         log.info("setting new params but no motor detected")
 
-                elif msg["msgtype"] == "srcimage":
-
-                    IMGSFORWEB.stack(msg)
-                    if len(IMGSFORWEB.content) >=2:
+                elif msgtype == "srcimage":
+                    try:
+                        frame = parse_srcimage(msg)
+                    except Exception:
+                        log.exception("invalid srcimage")
+                        continue
+                    dropped = IMGSFORWEB.stack(frame)
+                    if dropped:
                         await overwhelmedStart()
-                        log.info("start overWhelmed")
+                        log.info("start overWhelmed (preview drop)")
 
-
-                elif msg["msgtype"] == "motorInfo":
-
+                elif msgtype == "motorInfo":
                     MOTORSTATS.stack(msg["data"])
                     await bcastMsg(msg["data"], "motorInfo")
 
-                elif msg["msgtype"] == "camTiming":
-                    # relay camera timing to users
-                    CAMSTATS.stack(msg["data"])
-                    await bcastMsg(msg["data"], "camTiming")
+                elif msgtype == "camTiming":
+                    try:
+                        timing = parse_cam_timing(msg)
+                        payload = timing.data.model_dump()
+                    except Exception:
+                        payload = msg.get("data", msg)
+                    CAMSTATS.stack(payload)
+                    await bcastMsg(payload, "camTiming")
 
-
-                elif msg["msgtype"] in ["sonyparams","sonyShoot"]:
-                    log.info("pushing to camera %s",SONYCAMERA)
-                    if SONYCAMERA is not None:
-                        await SONYCAMERA.send(rawData)
-
-                elif msg["msgtype"] in ["gyrodata"]:
+                elif msgtype in ["gyrodata"]:
                     log.info("got gyro data %s", msg)
-                    global latestgyroData
                     latestgyroData = msg
                 else:
-                    log.info("message type %s ?",msg["msgtype"])
+                    log.info("message type %s ?", msgtype)
 
             except Exception as e:
                 log.exception("bad message! %s", e)
                 log.warning("bad message!")
-    except websockets.exceptions.ConnectionClosed as e:
+    except websockets.exceptions.ConnectionClosed:
         log.info("client disconnected")
-    except websockets.exceptions.ConnectionClosedOK as e:
+    except websockets.exceptions.ConnectionClosedOK:
         log.info("client disconnected")
     except Exception as e:
         log.error("error type %s", type(e))
@@ -269,191 +244,152 @@ async def handler(websocket, path):
         elif "motor" in path:
             log.warning("motor connection close")
             WSMOTOR = None
-        else:
+        elif "stats" not in path:
             await unregister(websocket)
 
 
+def params_to_wire_from_dict(data: dict) -> str:
+    return json.dumps({"msgtype": "params", "data": data})
 
-def drawCircle(img_draw,w,h,pixRadius,width=2,outline = "#0F0F"): 
-    img_draw.ellipse((w-pixRadius,h-pixRadius, w+pixRadius,h+pixRadius), fill = None, outline =outline,width=2)
 
-@infiniteRetry(.02)
+@infiniteRetry(0.01)
 async def forwardImageToWeb():
+    """Pop queued frames and passthrough-broadcast; clear overwhelm when empty."""
     log = logging.getLogger("fwdImage")
-    global currentParams
-    global WSMOTOR
-    global WSCAMERA
-    global USERS
 
-    inbuff= len(IMGSFORWEB.content)
-    if inbuff >0:
-        msg = IMGSFORWEB.pop()
-        strt = time.time()
-        decoded = base64.b64decode(msg["imageData"].encode("utf-8"))
-        currentImage = Image.open(io.BytesIO(decoded))
-        currentUsedParams = msg["usedParams"]
+    if len(IMGSFORWEB) == 0:
+        return
 
-        # draw overlay
+    frame = IMGSFORWEB.pop()
+    strt = time.time()
+    try:
+        spectrum = frame.spectrum
+        await bcastPassthroughFrame(frame.imageData, frame.usedParams, spectrum)
+    except Exception:
+        log.exception("error broadcasting image")
 
-        log.debug("drawing overlay on image with params %s",currentUsedParams)
-        img_draw = ImageDraw.Draw(currentImage)
+    dur = time.time() - strt
+    log.debug("passthrough to clients dur %.4f", dur)
 
-        cameraWFov = float(currentUsedParams.get("cameraWfov",22.5))
-
-        relw = .5+currentUsedParams.get("markXloc",.0)/2.0
-        relh = .5 +currentUsedParams.get("markYloc",.0)/2.0
-
-        crosscenter  = currentImage.size[0]*relw , currentImage.size[1]*relh
-
-
-        degByPix = cameraWFov/currentImage.size[0]
-
-
-        pixRadius = 1.0/degByPix
-        if pixRadius <1.0:
-            pixRadius = 1.0
-        log.debug("with w:%.2f,h:%.2f,  pix:%.1f",relw,relh,pixRadius)
-        drawCircle(img_draw,crosscenter[0],crosscenter[1],pixRadius=int(pixRadius),width=2,outline = "#F0F")
-        drawCircle(img_draw,crosscenter[0],crosscenter[1],pixRadius=int(pixRadius*2),width=2,outline = "#F0F")
-        drawCircle(img_draw,crosscenter[0],crosscenter[1],pixRadius=int(pixRadius*5),width=2,outline = "#F0F")
-
-        if latestgyroData is not None:
-            pitch = latestgyroData["data"]["pitch"]
-            rot = 90.0-latestgyroData["data"]["roll"]
-            log.info("rotation by %.2f", rot)
-            currentImage = currentImage.rotate(rot, center=crosscenter, fillcolor="black")
-
-            img_draw = ImageDraw.Draw(currentImage)
-
-            pixByDeg = currentImage.size[1]/cameraWFov
-            for pitchline_angle in range(-90,90,5):
-                if abs( pitch-pitchline_angle) < 20:
-                    diffpix = (pitchline_angle-pitch)*pixByDeg
-
-                    drawCircle(img_draw, crosscenter[0], crosscenter[1]+diffpix, pixRadius=2, width=2,
-                               outline="#F0F")
-
-                    img_draw.text(xy=(crosscenter[0], crosscenter[1]+diffpix),
-                             text= "%s"%pitchline_angle,
-                             fill="#F0F")
-
-                    img_draw.line(xy=[(crosscenter[0]-50, crosscenter[1]+diffpix),
-                                      (crosscenter[0]+50, crosscenter[1]+diffpix)
-                                      ],fill="#F0F", width=2)
-
-
-        log.debug("image decodeTo Image dur %.2f",time.time()-strt)
-        try:
-            await bcastImg(currentImage, currentUsedParams)
-        except Exception as e:
-            log.exception("error broadcasting image")
-
-        dur = time.time()-strt
-        log.info("sending to all clients dur %.2f",dur)
-
-        await asyncio.sleep(.05)
-        if len(IMGSFORWEB.content)<inbuff:
-            await overwhelmedEnd()
+    if len(IMGSFORWEB) == 0:
+        await overwhelmedEnd()
 
 
 async def bgjob(diskList):
     log = logging.getLogger("bgjob")
-    global currentParams
-    global WSMOTOR
-    global WSCAMERA
-    global USERS
     sleepdur = 5
     while True:
         try:
-            data= scanDiskUsage(diskList)
-            await bcastMsg(data,"sysInfo")
-
-            #MOTORSTATS.saveAsJson("./motorstats.json")
-            #CAMSTATS.saveAsJson("./camStats.json")
-
-            servst =serviceStatus()
-
+            data = scanDiskUsage(diskList)
+            await bcastMsg(data, "sysInfo")
+            servst = serviceStatus()
             log.info("serviceStatus is %s", servst)
             await asyncio.sleep(sleepdur)
-        except Exception as e:
+        except Exception:
             log.exception("error")
             await asyncio.sleep(sleepdur)
+
 
 def serviceStatus():
     global WSMOTOR
     global WSCAMERA
     global USERS
-    serviceStatus = {}
+    status = {}
     for subserv, ws in zip(["WSMOTOR", "WSCAMERA"], [WSMOTOR, WSCAMERA]):
-        status = "OK" if (ws is not None) else "NOT CONNECTED"
-
-        serviceStatus[subserv] = [status, 0]
-
-    serviceStatus["WEBUSERS"] = ["OK", len(USERS)]
-    serviceStatus["OVERWHELM"] = ["OK", str(overWhelmed)]
-
-    return serviceStatus
-
+        status[subserv] = ["OK" if (ws is not None) else "NOT CONNECTED", 0]
+    status["WEBUSERS"] = ["OK", len(USERS)]
+    status["OVERWHELM"] = ["OK", str(overWhelmed)]
+    return status
 
 
 def scanDiskUsage(diskList):
     log = logging.getLogger("diskinfo")
-    # scan disk usage
-
     res = []
-    for diskIdent in diskList :
+    for diskIdent in diskList:
         if os.path.exists(diskIdent):
             total, used, free = [float(_) / (2 ** 30) for _ in shutil.disk_usage(diskIdent)]
-            usedpct = (used/total)*100
-            log.info("in %s using %.1f %% of %.1f Go ; %.1f Go free", diskIdent , usedpct , total,free)
-            res.append({
-                "total": total, "used": used, "usedpct": usedpct,
-                "free": free, "disk": diskIdent})
+            usedpct = (used / total) * 100 if total else 0.0
+            log.info(
+                "in %s using %.1f %% of %.1f Go ; %.1f Go free",
+                diskIdent,
+                usedpct,
+                total,
+                free,
+            )
+            res.append(
+                {
+                    "total": total,
+                    "used": used,
+                    "usedpct": usedpct,
+                    "free": free,
+                    "disk": diskIdent,
+                }
+            )
 
-    # adding memory usage ?a
-    import psutil
     mem = psutil.virtual_memory()
-    
-    giga = float(1024**3)
-    res.append({
-                "total": mem.total/giga, "used": mem.used/giga, "usedpct": mem.percent,
-                "free": mem.available/giga, "disk": "ram"})
+    giga = float(1024 ** 3)
+    res.append(
+        {
+            "total": mem.total / giga,
+            "used": mem.used / giga,
+            "usedpct": mem.percent,
+            "free": mem.available / giga,
+            "disk": "ram",
+        }
+    )
 
-
+    # Non-blocking sample (first call after process start may be 0.0).
+    cpu_pct = float(psutil.cpu_percent(interval=None))
+    res.append(
+        {
+            "total": 100.0,
+            "used": cpu_pct,
+            "usedpct": cpu_pct,
+            "free": max(0.0, 100.0 - cpu_pct),
+            "disk": "cpu",
+        }
+    )
     return res
 
 
-async def runWebSock():
+async def start_hub(host="127.0.0.1", port=0, disklist=None):
+    """
+    Start the hub server. Returns (server, port, tasks).
 
-    async with websockets.serve(handler, WSHOST, WSPORT) as srv:
-        pass
+    ``port=0`` binds an ephemeral port (useful for tests).
+    Caller should cancel ``tasks`` when shutting down.
+    """
+    if disklist is None:
+        disklist = list(DISKLIST)
+
+    server = await websockets.serve(
+        handler, host, port, max_size=32 * 1024 * 1024
+    )
+    bound = server.sockets[0].getsockname()[1]
+    logging.info("listening at ws://%s:%s", host, bound)
+    tasks = [
+        asyncio.create_task(forwardImageToWeb()),
+        asyncio.create_task(bgjob(disklist)),
+    ]
+    return server, bound, tasks
+
+
+async def amain():
+    host = "0.0.0.0"
+    port = 8765
+    logging.info("listening at ws://%s:%s", host, port)
+    async with websockets.serve(
+        handler, host, port, max_size=32 * 1024 * 1024
+    ):
+        asyncio.create_task(forwardImageToWeb())
+        asyncio.create_task(bgjob(DISKLIST))
+        await asyncio.Future()
+
 
 def main():
-
-    WSHOST = "0.0.0.0"
-    WSPORT = 8765
-    
-    DISKLIST = ["/","/dev/shm"]
-    
-    logging.info("listening at ws://%s:%s"%(WSHOST, WSPORT))
-    
-    srvobject = websockets.serve(handler, WSHOST, WSPORT)
-    asyncio.get_event_loop().run_until_complete(srvobject) 
-
-    asyncio.get_event_loop().create_task(forwardImageToWeb())
-
-
-
-
-    asyncio.get_event_loop().create_task(bgjob(DISKLIST))
-
-    asyncio.get_event_loop().run_forever()
+    asyncio.run(amain())
 
 
 if __name__ == "__main__":
-    loggingLevel = logging.INFO # 20; ERROR is 40 
-    logging.basicConfig(level=loggingLevel)
+    logging.basicConfig(level=logging.INFO)
     main()
-    #asyncio.run(main())
-
-

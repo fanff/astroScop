@@ -3,12 +3,11 @@ import json
 import logging
 
 import websockets
-from websockets import WebSocketClientProtocol
 
 
 class Jobstate():
     def __init__(self):
-        self.sc:WebSocketClientProtocol = None
+        self.sc = None
     def __repr__(self):
         return "connected" if self.sc is not None else "not connected"
     def is_connected(self):
@@ -75,16 +74,28 @@ class MsgBuff():
     def __init__(self,maxcount):
         self.maxcount = maxcount
         self.content= []
-    def stack(self,data):
-        while len(self.content)>=self.maxcount:
-            self.content = self.content[1:]
-        self.content.append(data)
 
+    def stack(self, data):
+        """
+        Append ``data``, dropping oldest entries when over capacity.
+
+        Returns True if at least one prior item was dropped.
+        """
+        dropped = False
+        while len(self.content) >= self.maxcount:
+            self.content = self.content[1:]
+            dropped = True
+        self.content.append(data)
+        return dropped
 
     def pop(self):
         poped = self.content[0]
         self.content = self.content[1:]
         return poped
+
+    def __len__(self):
+        return len(self.content)
+
     def saveAsJson(self,jsonName):
         with open(jsonName,"w") as fou:
             json.dump(self.content,fou)

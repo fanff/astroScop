@@ -1,6 +1,8 @@
 websockets
 websocket-client
 pySerial
+pydantic
+psutil
 
 
 # numpy APT it

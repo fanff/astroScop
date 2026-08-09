@@ -1,0 +1,16 @@
+[Unit]
+Description=astroScop WebSocket root server
+After=network.target
+
+[Service]
+Type=simple
+User=fanf
+Group=fanf
+WorkingDirectory=/home/fanf/astroScop/backapp
+ExecStart=/usr/bin/python3 /home/fanf/astroScop/backapp/rootserver.py
+Restart=always
+RestartSec=2
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
