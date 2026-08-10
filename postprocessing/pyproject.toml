@@ -1,0 +1,26 @@
+[project]
+name = "astroscop-pp"
+version = "0.1.0"
+description = "Offline conversion of astroScop Bayer science frames to Siril CFA FITS"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "astropy>=7.1.1",
+    "numpy>=2.0",
+]
+
+[project.scripts]
+astroscop-pp = "astroscop_pp.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
