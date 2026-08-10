@@ -7,7 +7,7 @@ Type=simple
 User=fanf
 Group=fanf
 WorkingDirectory=/home/fanf/astroScop/backapp
-ExecStart=/usr/bin/python3 /home/fanf/astroScop/backapp/rootserver.py
+ExecStart=/home/fanf/astroScop/backapp/.venv/bin/python /home/fanf/astroScop/backapp/rootserver.py
 Restart=always
 RestartSec=2
 Environment=PYTHONUNBUFFERED=1

@@ -1,6 +1,10 @@
+savedimgs
+
+# uv / venv
+.venv/
+deploy/requirements.generated.txt
+
 # created by virtualenv automatically
 #
 bin/
 pyvenv.cfg
-
-savedimgs

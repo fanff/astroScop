@@ -68,9 +68,13 @@ Named presets exposed to UI/rootserver (`SENSOR_PRESETS` in [`cam_picamera2.py`]
 
 ## Software stack on `piscope`
 
-- `python3-picamera2`, `python3-libcamera`, `python3-pydantic`
-- `libcamera0.7` + IPA modules
-- `rpicam-apps` (`rpicam-hello`, `rpicam-still`, …)
+**apt (system / camera):**
+
+- `python3-picamera2`, `python3-libcamera`
+- `python3-numpy`, `python3-opencv`, `python3-pil`
+- `libcamera` + IPA modules / `rpicam-apps` as needed
+
+**uv on host → pip on Pi:** pure-Python deps (`websockets`, `pyserial`, `pydantic`, `psutil`, …) are locked in [`../pyproject.toml`](../pyproject.toml) / `uv.lock`. Export with [`../deploy/export_pi_requirements.sh`](../deploy/export_pi_requirements.sh), then [`../deploy/install_on_pi.sh`](../deploy/install_on_pi.sh) creates `backapp/.venv` (`--system-site-packages`) and `pip install`s the generated requirements. The Pi does not need uv installed.
 
 User `fanf` is in groups **`video`**, **`render`**, etc. (required for camera access).
 
@@ -112,7 +116,7 @@ Science path forces AE off, AWB off, minimal NR, neutral tone mapping.
 Only **one** process may own the IMX477 at a time.
 
 ```text
-astroscop-camera.service  →  python3 …/cam_picamera2.py
+astroscop-camera.service  →  backapp/.venv/bin/python …/cam_picamera2.py
 ```
 
 If that service is running, ad-hoc `Picamera2()` / suite scripts will fail. Stop/disable before manual tests.

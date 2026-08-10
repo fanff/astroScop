@@ -1,0 +1,15 @@
+[project]
+name = "astroscop-backapp"
+version = "0.1.0"
+description = "astroScop Pi services: WebSocket hub, HQ camera worker, motor worker"
+requires-python = ">=3.11"
+dependencies = [
+    "websockets",
+    "websocket-client",
+    "pyserial",
+    "pydantic",
+    "psutil",
+]
+
+[tool.uv]
+package = false
