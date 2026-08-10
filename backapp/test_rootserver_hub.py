@@ -360,6 +360,83 @@ async def test_cam_reconnect_resends_params(port: int):
         assert msg["data"]["shutter_us"] == 7777
 
 
+async def test_srcimage_seeds_current_params(port: int):
+    """First srcimage with usedParams.settings seeds hub when currentParams is None."""
+    jpeg = _tiny_jpeg_b64()
+    used = {
+        "shutter_us": 4242,
+        "analog_gain": 2.25,
+        "settings": {
+            "shutter_us": 4242,
+            "analog_gain": 2.25,
+            "sensor_preset": "bin2x2",
+            "include_raw": True,
+            "science_neutral": True,
+            "colour_gain_r": 3.5,
+            "colour_gain_b": 1.5,
+            "display_width": 640,
+            "display_height": 480,
+            "save_enabled": False,
+            "save_format": "none",
+            "save_section": "test",
+            "save_subsection": "",
+            "save_root": "./savedimgs",
+            "max_emit_fps": 8.0,
+        },
+    }
+
+    async with websockets.connect(f"ws://127.0.0.1:{port}/camera") as cam:
+        await cam.send(
+            json.dumps(
+                {
+                    "msgtype": "srcimage",
+                    "imageData": jpeg,
+                    "usedParams": used,
+                }
+            )
+        )
+        await asyncio.sleep(0.1)
+
+    async with websockets.connect(f"ws://127.0.0.1:{port}/camera") as cam2:
+        msg = json.loads(await asyncio.wait_for(cam2.recv(), timeout=2.0))
+        assert msg["msgtype"] == "params"
+        assert msg["data"]["shutter_us"] == 4242
+        assert abs(float(msg["data"]["analog_gain"]) - 2.25) < 1e-6
+
+    # A later frame must not overwrite UI-set currentParams.
+    async with websockets.connect(f"ws://127.0.0.1:{port}/") as ui:
+        await ui.send(
+            json.dumps(
+                {
+                    "msgtype": "params",
+                    "data": {"shutter_us": 9999, "analog_gain": 1.0},
+                }
+            )
+        )
+        await asyncio.sleep(0.05)
+
+    async with websockets.connect(f"ws://127.0.0.1:{port}/camera") as cam3:
+        # Drain the reconnect resend first
+        msg = json.loads(await asyncio.wait_for(cam3.recv(), timeout=2.0))
+        assert msg["msgtype"] == "params"
+        assert msg["data"]["shutter_us"] == 9999
+        await cam3.send(
+            json.dumps(
+                {
+                    "msgtype": "srcimage",
+                    "imageData": jpeg,
+                    "usedParams": used,
+                }
+            )
+        )
+        await asyncio.sleep(0.1)
+
+    async with websockets.connect(f"ws://127.0.0.1:{port}/camera") as cam4:
+        msg = json.loads(await asyncio.wait_for(cam4.recv(), timeout=2.0))
+        assert msg["msgtype"] == "params"
+        assert msg["data"]["shutter_us"] == 9999
+
+
 async def run_all():
     logging.basicConfig(level=logging.WARNING)
     test_msgbuff_drop_flag()
@@ -379,6 +456,8 @@ async def run_all():
     print("sysinfo ok")
     await with_hub(test_cam_reconnect_resends_params)
     print("reconnect ok")
+    await with_hub(test_srcimage_seeds_current_params)
+    print("seed currentParams ok")
     print("ALL PASS")
 
 

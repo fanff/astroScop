@@ -231,6 +231,32 @@ export function defaultCameraSettings() {
   }
 }
 
+/** Map live CameraSettings → CAPTURE_MODES id (best match). */
+export function captureModeIdFromSettings(settings = {}) {
+  const preset = String(settings.sensor_preset || 'bin2x2')
+  const mw = settings.main_width == null ? null : Number(settings.main_width)
+  const mh = settings.main_height == null ? null : Number(settings.main_height)
+  const exact = CAPTURE_MODES.find(
+    (m) =>
+      m.sensor_preset === preset &&
+      m.main_width == mw &&
+      m.main_height == mh
+  )
+  if (exact) return exact.id
+  const native = CAPTURE_MODES.find(
+    (m) => m.sensor_preset === preset && m.main_width == null
+  )
+  return (native || CAPTURE_MODES[5]).id
+}
+
+/** Map live display size → DISPLAY_PRESETS label. */
+export function displayPresetFromSettings(settings = {}) {
+  const w = Math.round(Number(settings.display_width) || 640)
+  const h = Math.round(Number(settings.display_height) || 480)
+  const match = DISPLAY_PRESETS.find((d) => d.width === w && d.height === h)
+  return (match || DISPLAY_PRESETS[1]).label
+}
+
 /**
  * Build a clean wire dict (only known fields, coerced types).
  * @param {Partial<ReturnType<typeof defaultCameraSettings>>} partial

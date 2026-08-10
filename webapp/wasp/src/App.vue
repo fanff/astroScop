@@ -40,6 +40,9 @@
               </div>
               <captureOptions
                 :slidestyle="slidestyle"
+                :settingsSnapshot="settingsSnapshot"
+                :settingsEpoch="settingsEpoch"
+                :wsconnected="wsconnected"
                 @newParams="newParams"
                 @newMotorParams="newMotorParams"
               />
@@ -98,6 +101,9 @@ export default {
       imgData: '',
       imgProps: {},
       imgStats: {},
+      /** Frozen once per connection from first usedParams.settings — not per-frame. */
+      settingsSnapshot: null,
+      settingsEpoch: 0,
       showSettings: false,
       showMotorstats: false,
       diskUsage: [],
@@ -122,6 +128,15 @@ export default {
           break
         case INBOUND_TYPES.imgProps:
           this.imgProps = data || {}
+          // One-shot hydrate source for controls — never refresh from later frames.
+          if (this.wsconnected && this.settingsSnapshot == null) {
+            const settings =
+              data && data.usedParams && data.usedParams.settings
+            if (settings && typeof settings === 'object') {
+              this.settingsSnapshot = Object.freeze({ ...settings })
+              this.settingsEpoch += 1
+            }
+          }
           break
         case INBOUND_TYPES.imgStats:
           this.imgStats = data || {}
@@ -147,6 +162,9 @@ export default {
     },
     onopen() {
       this.wsconnected = true
+      this.settingsSnapshot = null
+      // settingsEpoch stays; captureOptions only applies when epoch increases
+      // after a new non-null snapshot is taken below.
       try {
         localStorage.setItem(WSIP_STORAGE_KEY, this.wsip.trim())
       } catch {
@@ -156,6 +174,8 @@ export default {
     onclose(info) {
       console.log('onClose', info)
       this.wsconnected = false
+      this.imgProps = {}
+      this.settingsSnapshot = null
     },
     newParams(params) {
       if (!this.wsconnected || !this.connection) return

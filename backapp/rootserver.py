@@ -203,6 +203,17 @@ async def handler(websocket, path=None):
                     except Exception:
                         log.exception("invalid srcimage")
                         continue
+                    # Seed hub cache from live camera once so reconnect can
+                    # restore settings even if no UI client ever pushed params.
+                    if currentParams is None:
+                        settings_blob = (frame.usedParams or {}).get("settings")
+                        if isinstance(settings_blob, dict):
+                            seeded = try_normalize_params(settings_blob)
+                            if seeded is not None:
+                                currentParams = seeded.to_wire_dict()
+                                log.info(
+                                    "seeded currentParams from camera usedParams"
+                                )
                     dropped = IMGSFORWEB.stack(frame)
                     if dropped:
                         await overwhelmedStart()
