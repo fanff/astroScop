@@ -371,7 +371,7 @@ export default {
 
 button {
   color: var(--fg, #c7221c);
-  background: #000;
+  background: transparent;
   border: 1px solid var(--border, #7a1a16);
   font-size: 16px;
   cursor: pointer;
@@ -379,7 +379,7 @@ button {
 
 input {
   color: var(--fg, #c7221c);
-  background: #000;
+  background: transparent;
   border: 1px solid var(--border, #7a1a16);
 }
 </style>

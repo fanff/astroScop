@@ -122,12 +122,11 @@ export const CAPTURE_MODES = [
   },
 ]
 
-export const DISPLAY_PRESETS = [
-  { width: 320, height: 240, label: '320×240 (light preview)' },
-  { width: 640, height: 480, label: '640×480' },
-  { width: 960, height: 720, label: '960×720' },
-  { width: 1280, height: 720, label: '1280×720' },
-  { width: 1920, height: 1080, label: '1920×1080' },
+export const PREVIEW_SCALES = [
+  { div: 1, label: 'full' },
+  { div: 2, label: '1/2' },
+  { div: 4, label: '1/4' },
+  { div: 8, label: '1/8' },
 ]
 
 export const SAVE_SECTIONS = ['test', 'work', 'deep', 'planet', 'dark', 'flats']
@@ -220,8 +219,7 @@ export function defaultCameraSettings() {
     colour_gain_b: COLOUR_GAIN_B_DEFAULT,
     scaler_crop: null,
     science_neutral: true,
-    display_width: 640,
-    display_height: 480,
+    preview_div: 2,
     save_format: 'none',
     save_section: 'test',
     save_subsection: '',
@@ -249,12 +247,11 @@ export function captureModeIdFromSettings(settings = {}) {
   return (native || CAPTURE_MODES[5]).id
 }
 
-/** Map live display size → DISPLAY_PRESETS label. */
-export function displayPresetFromSettings(settings = {}) {
-  const w = Math.round(Number(settings.display_width) || 640)
-  const h = Math.round(Number(settings.display_height) || 480)
-  const match = DISPLAY_PRESETS.find((d) => d.width === w && d.height === h)
-  return (match || DISPLAY_PRESETS[1]).label
+/** Map live preview_div → PREVIEW_SCALES div (1|2|4|8). */
+export function previewDivFromSettings(settings = {}) {
+  const d = Math.round(Number(settings.preview_div))
+  if (d === 1 || d === 2 || d === 4 || d === 8) return d
+  return 2
 }
 
 /**
@@ -272,14 +269,17 @@ export function toWireSettings(partial = {}) {
   out.colour_gain_r = clamp(Number(out.colour_gain_r) || COLOUR_GAIN_R_DEFAULT, 0.001, 32)
   out.colour_gain_b = clamp(Number(out.colour_gain_b) || COLOUR_GAIN_B_DEFAULT, 0.001, 32)
   out.science_neutral = Boolean(out.science_neutral)
-  out.display_width = Math.max(2, Math.round(Number(out.display_width) || 640))
-  out.display_height = Math.max(2, Math.round(Number(out.display_height) || 480))
+  out.preview_div = previewDivFromSettings(out)
   out.save_format = String(out.save_format || 'none')
   out.save_section = String(out.save_section || 'test')
   out.save_subsection = String(out.save_subsection || '')
   out.save_enabled = Boolean(out.save_enabled)
   out.save_root = String(out.save_root || './savedimgs')
   out.max_emit_fps = clamp(Number(out.max_emit_fps) || 8, 0.001, 60)
+
+  // Drop legacy absolute display size if a partial still carries it.
+  delete out.display_width
+  delete out.display_height
 
   if (out.main_width == null || out.main_height == null) {
     out.main_width = null

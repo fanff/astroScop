@@ -95,16 +95,20 @@
           downscale the RGB stream (reconfigure). Preview size is JPEG-only.
         </p>
 
-        <label>preview size (JPEG only)</label>
-        <select v-model="displayPreset" @change="pushParamsNow">
+        <label>preview scale (JPEG only)</label>
+        <select v-model.number="preview_div" @change="pushParamsNow">
           <option
-            v-for="d in displayPresets"
-            :key="d.label"
-            :value="d.label"
+            v-for="d in previewScales"
+            :key="d.div"
+            :value="d.div"
           >
             {{ d.label }}
           </option>
         </select>
+        <p class="hint">
+          Downscales the capture RGB for bandwidth; aspect ratio is kept.
+          Browser scales the JPEG back up to fill the stage.
+        </p>
 
         <div class="slider-row">
           <div class="slider-meta">
@@ -146,7 +150,7 @@
 <script>
 import {
   CAPTURE_MODES,
-  DISPLAY_PRESETS,
+  PREVIEW_SCALES,
   SAVE_SECTIONS,
   SHUTTER_US_MIN,
   SHUTTER_US_MAX,
@@ -161,7 +165,7 @@ import {
   colourGainToLogPos,
   colourGainLogPosToGain,
   captureModeIdFromSettings,
-  displayPresetFromSettings,
+  previewDivFromSettings,
 } from '../ws/cameraSettings.js'
 
 const PUSH_DEBOUNCE_MS = 200
@@ -195,12 +199,6 @@ export default {
   data() {
     const defaults = defaultCameraSettings()
     const shutter_us = clampShutterUs(defaults.shutter_us)
-    const display =
-      DISPLAY_PRESETS.find(
-        (d) =>
-          d.width === defaults.display_width &&
-          d.height === defaults.display_height
-      ) || DISPLAY_PRESETS[1]
     const defaultMode =
       CAPTURE_MODES.find(
         (m) =>
@@ -210,7 +208,7 @@ export default {
       ) || CAPTURE_MODES[5]
     return {
       captureModes: CAPTURE_MODES,
-      displayPresets: DISPLAY_PRESETS,
+      previewScales: PREVIEW_SCALES,
       saveSections: SAVE_SECTIONS,
       shutterUsMin: SHUTTER_US_MIN,
       shutterUsMax: SHUTTER_US_MAX,
@@ -224,7 +222,7 @@ export default {
       colour_gain_b: defaults.colour_gain_b,
       colour_gain_r_log: colourGainToLogPos(defaults.colour_gain_r),
       colour_gain_b_log: colourGainToLogPos(defaults.colour_gain_b),
-      displayPreset: display.label,
+      preview_div: defaults.preview_div,
       max_emit_fps: defaults.max_emit_fps,
       save_enabled: defaults.save_enabled,
       save_root: defaults.save_root,
@@ -305,7 +303,7 @@ export default {
       this.colour_gain_b = s.colour_gain_b
       this.colour_gain_r_log = colourGainToLogPos(s.colour_gain_r)
       this.colour_gain_b_log = colourGainToLogPos(s.colour_gain_b)
-      this.displayPreset = displayPresetFromSettings(s)
+      this.preview_div = previewDivFromSettings(s)
       this.max_emit_fps = s.max_emit_fps
       this.save_enabled = s.save_enabled
       this.save_root = s.save_root
@@ -330,14 +328,7 @@ export default {
       this.colour_gain_b = colourGainLogPosToGain(this.colour_gain_b_log)
       this.schedulePush()
     },
-    currentDisplaySize() {
-      return (
-        this.displayPresets.find((d) => d.label === this.displayPreset) ||
-        this.displayPresets[1]
-      )
-    },
     configData() {
-      const disp = this.currentDisplaySize()
       const mode = this.activeCaptureMode
       return toWireSettings({
         sensor_preset: mode.sensor_preset,
@@ -347,8 +338,7 @@ export default {
         analog_gain: this.analog_gain,
         colour_gain_r: this.colour_gain_r,
         colour_gain_b: this.colour_gain_b,
-        display_width: disp.width,
-        display_height: disp.height,
+        preview_div: this.preview_div,
         max_emit_fps: this.max_emit_fps,
         save_enabled: this.save_enabled,
         save_root: this.save_root,

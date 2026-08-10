@@ -43,10 +43,8 @@ export default {
   background: #000;
 }
 .viewwin {
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
-  height: auto;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   border: 1px solid #a7021c;
   background: #000;

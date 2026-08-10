@@ -38,10 +38,12 @@ FAST_FIELDS = frozenset(
         "science_neutral",
     }
 )
+PreviewDiv = Literal[1, 2, 4, 8]
+PREVIEW_DIVS = (1, 2, 4, 8)
+
 OUTPUT_FIELDS = frozenset(
     {
-        "display_width",
-        "display_height",
+        "preview_div",
         "save_format",
         "save_section",
         "save_subsection",
@@ -50,6 +52,19 @@ OUTPUT_FIELDS = frozenset(
         "max_emit_fps",
     }
 )
+
+
+def preview_wh_from_frame(frame_wh: Tuple[int, int], preview_div: int) -> Tuple[int, int]:
+    """
+    Aspect-preserving integer downsample of capture RGB size for JPEG preview.
+
+    Even dimensions (≥2) for encoder friendliness. ``preview_div`` is 1|2|4|8.
+    """
+    w, h = int(frame_wh[0]), int(frame_wh[1])
+    d = int(preview_div) if int(preview_div) in PREVIEW_DIVS else 2
+    out_w = max(2, (w // d) & ~1)
+    out_h = max(2, (h // d) & ~1)
+    return out_w, out_h
 
 FORBIDDEN_CONTROL_KEYS = frozenset(
     {
@@ -84,8 +99,7 @@ class CameraSettings(BaseModel):
     scaler_crop: Optional[Tuple[int, int, int, int]] = None
     science_neutral: bool = True
 
-    display_width: int = Field(default=640, ge=2)
-    display_height: int = Field(default=480, ge=2)
+    preview_div: PreviewDiv = 2
     save_format: str = "none"  # legacy: "none" | "npy" (Bayer only; RGB formats ignored)
     save_section: str = "test"
     save_subsection: str = ""
@@ -151,10 +165,11 @@ class CameraSettings(BaseModel):
             },
             "dispresol": {
                 "name": "display",
-                "width": int(self.display_width),
-                "height": int(self.display_height),
+                "width": 0,
+                "height": 0,
                 "mode": 0,
             },
+            "preview_div": int(self.preview_div),
             "denoise": False,
             "capture_format": "rgb",
             "exposure_compensation": 0,
@@ -284,13 +299,15 @@ def from_legacy_dict(
     if "science_neutral" in raw:
         kwargs["science_neutral"] = bool(raw["science_neutral"])
 
-    if "dispresol" in raw and isinstance(raw["dispresol"], dict):
-        kwargs["display_width"] = int(raw["dispresol"].get("width", 640))
-        kwargs["display_height"] = int(raw["dispresol"].get("height", 480))
-    if "display_width" in raw:
-        kwargs["display_width"] = int(raw["display_width"])
-    if "display_height" in raw:
-        kwargs["display_height"] = int(raw["display_height"])
+    # Canonical preview scale. Legacy display_width/height / dispresol are ignored
+    # (absolute boxes distorted aspect); default preview_div=2 applies.
+    if "preview_div" in raw:
+        try:
+            pd = int(raw["preview_div"])
+            if pd in PREVIEW_DIVS:
+                kwargs["preview_div"] = pd
+        except (TypeError, ValueError):
+            pass
 
     for k in ("save_format", "save_section", "save_subsection", "save_root"):
         if k in raw:

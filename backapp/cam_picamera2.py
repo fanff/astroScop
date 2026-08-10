@@ -31,6 +31,7 @@ from cam_settings import (
     default_settings,
     diff_settings,
     from_legacy_dict,
+    preview_wh_from_frame,
 )
 from cam_spectrum import compute_rgb_spectrum
 from cam_storage import ScienceStorageClient
@@ -355,15 +356,20 @@ def capture_raw_frame(picam2, stream="raw"):
     return decode_raw_u16(raw8, picam2=picam2, stream=stream)
 
 
-def pack_preview_emit(rgb, display_wh):
+def pack_preview_emit(rgb, preview_div):
     """
-    Resize → spectrum → JPEG on a worker thread (never on the asyncio loop).
+    Aspect-preserving downsample → spectrum → JPEG (worker thread only).
 
+    ``preview_div`` is 1|2|4|8 relative to capture RGB shape.
     Returns (jpeg_b64, spectrum_dict_or_None).
     """
-    dw, dh = int(display_wh[0]), int(display_wh[1])
+    h, w = int(rgb.shape[0]), int(rgb.shape[1])
+    dw, dh = preview_wh_from_frame((w, h), preview_div)
     image = Image.fromarray(rgb)
-    image_display = imgutils.resizeImage(image, (dw, dh))
+    if (dw, dh) != (w, h):
+        image_display = imgutils.resizeImage(image, (dw, dh))
+    else:
+        image_display = image
     disp_arr = np.asarray(image_display)
     spectrum = None
     try:
@@ -855,6 +861,7 @@ def used_params_from_settings(picam2, settings, frame_shape, metadata=None):
         (settings.colour_gain_r, settings.colour_gain_b),
     )
     h, w = frame_shape[0], frame_shape[1]
+    emit_w, emit_h = preview_wh_from_frame((w, h), settings.preview_div)
     return {
         "triggerDate": time.time(),
         "triggerDateStr": str(datetime.datetime.utcnow()),
@@ -877,9 +884,10 @@ def used_params_from_settings(picam2, settings, frame_shape, metadata=None):
         "redgain": float(colour[0]),
         "bluegain": float(colour[1]),
         "shootresol": {"name": str(frame_shape), "width": w, "height": h},
+        "preview_div": int(settings.preview_div),
         "dispresol": {
-            "width": settings.display_width,
-            "height": settings.display_height,
+            "width": emit_w,
+            "height": emit_h,
         },
         "save_format": settings.save_format,
         "save_section": settings.save_section,
@@ -1121,14 +1129,12 @@ async def bg_job():
                 if not server_overwhelmed:
                     if server_connection:
                         try:
-                            dw = params.get("dispresol", {}).get("width", 640)
-                            dh = params.get("dispresol", {}).get("height", 480)
+                            preview_div = 2
                             if current_settings is not None:
-                                dw = current_settings.display_width
-                                dh = current_settings.display_height
+                                preview_div = int(current_settings.preview_div)
                             loop = asyncio.get_running_loop()
                             data, spectrum = await loop.run_in_executor(
-                                _EMIT_POOL, pack_preview_emit, a, (dw, dh)
+                                _EMIT_POOL, pack_preview_emit, a, preview_div
                             )
                             msg = {
                                 "usedParams": params,

@@ -135,8 +135,7 @@ Preferred `params.data` shape. Extra keys are **ignored** (`extra="ignore"`). Ty
 | `colour_gain_b` | float (0, 32] | `1.5` | **fast** | |
 | `scaler_crop` | `[x,y,w,h]` or null | `null` | **fast** | Sensor coords; w/h forced even |
 | `science_neutral` | bool | `true` | **fast** | Worker path is always manual / neutral tone |
-| `display_width` | int ≥ 2 | `640` | **output** | Resize for WS JPEG only |
-| `display_height` | int ≥ 2 | `480` | **output** | |
+| `preview_div` | `1` \| `2` \| `4` \| `8` | `2` | **output** | JPEG downsample vs capture RGB (full / ½ / ¼ / ⅛); aspect preserved |
 | `save_enabled` | bool | `false` | **output** | Runtime arm/disarm Bayer disk persistence |
 | `save_root` | string | `"./savedimgs"` | **output** | Runtime destination root (SD, `/dev/shm`, USB, …) |
 | `save_format` | string | `"none"` | **output** | Legacy: `"none"` / `"npy"` map to `save_enabled`; science writes Bayer `.npy` only |
@@ -150,7 +149,7 @@ Preferred `params.data` shape. Extra keys are **ignored** (`extra="ignore"`). Ty
 |-------|--------|------------------|
 | **Slow** | `sensor_preset`, `main_*`, `include_raw` | stop → configure → start (brief blackout) |
 | **Fast** | `shutter_us`, `analog_gain`, `colour_gain_*`, `scaler_crop`, `science_neutral` | single `set_controls` (streaming) |
-| **Output** | `display_*`, `save_*`, `max_emit_fps` | no sensor reconfig |
+| **Output** | `preview_div`, `save_*`, `max_emit_fps` | no sensor reconfig |
 
 Classification is implemented by `diff_settings()` in [`cam_settings.py`](../cam_settings.py). Changing a slow field forces a full reopen of the capture loop.
 
@@ -168,8 +167,7 @@ Classification is implemented by `diff_settings()` in [`cam_settings.py`](../cam
     "colour_gain_b": 1.5,
     "scaler_crop": null,
     "science_neutral": true,
-    "display_width": 640,
-    "display_height": 480,
+    "preview_div": 2,
     "save_enabled": false,
     "save_root": "./savedimgs",
     "save_format": "none",
@@ -204,7 +202,7 @@ Libcamera may still report `DigitalGain` in metadata; that is read-only status, 
 | `shootresol.name` in preset set | `sensor_preset` |
 | `shootresol.width/height` matching a preset size | `sensor_preset` |
 | `shootresol` size not matching a preset | `main_width` / `main_height` |
-| `dispresol.width/height` | `display_width` / `display_height` |
+| `dispresol.width/height` | actual emitted JPEG size (from capture ÷ `preview_div`) |
 
 **New UI and rootserver should emit canonical keys**, not legacy ones. Legacy remains for compatibility during migration.
 
@@ -246,7 +244,8 @@ Built by `used_params_from_settings()` in [`cam_picamera2.py`](../cam_picamera2.
 | `ScalerCrop`, `FrameDuration`, `SensorTimestamp` | Libcamera metadata |
 | `save_enabled`, `save_root`, `save_section`, `save_subsection` | Bayer save routing |
 | `save_format` | Legacy enable hint (`none`/`npy`) |
-| `dispresol` | Display size used for emit |
+| `dispresol` | Actual emitted JPEG WxH (capture ÷ `preview_div`, even) |
+| `preview_div` | Configured JPEG scale divisor `1`/`2`/`4`/`8` |
 | `shutterSpeed`, `redgain`, `bluegain`, `shootresol` | **Legacy aliases** for old overlay code |
 
 Rootserver overlay today still reads some legacy keys (`cameraWfov`, etc.). When updating rootserver, prefer `usedParams.settings` / new names; keep aliases until UI/overlay migrate.
@@ -297,7 +296,7 @@ Expose controls that match the canonical fields. Suggested UX:
 | Gain | `analog_gain` | Continuous float — **no ISO slider** |
 | Colour R/B | `colour_gain_r/b` | Default 3.5 / 1.5; AWB off |
 | ROI (optional) | `scaler_crop` | Or “center crop %” helper that sends `[x,y,w,h]` |
-| Preview size | `display_width/height` | Independent of sensor mode |
+| Preview scale | `preview_div` | `1`/`2`/`4`/`8` — aspect-preserving JPEG downsample; UI paints with `object-fit: contain` |
 | Preview FPS cap | `max_emit_fps` | Default 8 |
 | Save arm | `save_enabled` | Runtime on/off; Bayer `.npy` only (separate storage process) |
 | Save path | `save_root` + section | Runtime destination; no sensor reconfig |

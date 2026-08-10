@@ -106,8 +106,7 @@ def main(argv=None):
         analog_gain=1.0,
         include_raw=False,
         science_neutral=True,
-        display_width=640,
-        display_height=480,
+        preview_div=2,
         max_emit_fps=8.0,
     )
     picam2 = None

@@ -8,10 +8,11 @@
   --fg: #c7221c;
   --fg-dim: #8a2a26;
   --border: rgba(122, 26, 22, 0.75);
-  --track: #1a1a1a;
+  --track: rgba(199, 34, 28, 0.22);
   --track-fill: #c7221c;
   --thumb: #c7221c;
   --thumb-border: #2a0808;
+  --control-bg: transparent;
 }
 
 html,
@@ -38,7 +39,7 @@ input,
 select,
 textarea {
   color: var(--fg);
-  background: #000;
+  background: var(--control-bg);
   border: 1px solid var(--border);
   accent-color: var(--fg);
   outline: none;
@@ -56,12 +57,13 @@ select:focus-visible {
   box-shadow: 0 0 0 1px var(--fg);
 }
 
+/* Native dropdown list needs an opaque menu for readability when open. */
 option {
-  background: #000;
+  background: #120808;
   color: var(--fg);
 }
 
-/* Range sliders — dark track, red thumb (no OS blue / white chrome) */
+/* Range sliders — translucent track, red thumb (no OS blue / white chrome) */
 input[type='range'] {
   -webkit-appearance: none;
   appearance: none;
@@ -122,11 +124,12 @@ input[type='checkbox'] {
   accent-color: var(--fg);
   width: 1rem;
   height: 1rem;
+  background: transparent;
 }
 
 input[type='number'],
 input[type='text'] {
-  background: #000;
+  background: var(--control-bg);
   color: var(--fg);
   border: 1px solid var(--border);
   caret-color: var(--fg);

@@ -126,6 +126,24 @@ def test_normalize_strips_iso():
     assert try_normalize_params({"analog_gain": -1}) is None
 
 
+def test_preview_div_and_wh():
+    from cam_settings import CameraSettings, from_legacy_dict, preview_wh_from_frame
+
+    assert preview_wh_from_frame((666, 494), 1) == (666, 494)
+    assert preview_wh_from_frame((666, 494), 2) == (332, 246)
+    assert preview_wh_from_frame((666, 494), 8) == (82, 60)
+    # odd inputs forced even after divide
+    assert preview_wh_from_frame((2028, 1520), 2) == (1014, 760)
+
+    s = from_legacy_dict({"preview_div": 4}, {})
+    assert s.preview_div == 4
+    # legacy absolute display size ignored → default 2
+    s2 = from_legacy_dict({"display_width": 320, "display_height": 240}, {})
+    assert s2.preview_div == 2
+    assert "display_width" not in s2.to_wire_dict()
+    assert CameraSettings().preview_div == 2
+
+
 def test_hist_from_spectrum():
     spec = _fake_spectrum()
     hist = hist_data_from_spectrum(spec)
@@ -374,8 +392,7 @@ async def test_srcimage_seeds_current_params(port: int):
             "science_neutral": True,
             "colour_gain_r": 3.5,
             "colour_gain_b": 1.5,
-            "display_width": 640,
-            "display_height": 480,
+            "preview_div": 2,
             "save_enabled": False,
             "save_format": "none",
             "save_section": "test",
@@ -441,6 +458,7 @@ async def run_all():
     logging.basicConfig(level=logging.WARNING)
     test_msgbuff_drop_flag()
     test_normalize_strips_iso()
+    test_preview_div_and_wh()
     test_hist_from_spectrum()
     print("unit ok")
 

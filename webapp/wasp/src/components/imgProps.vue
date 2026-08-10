@@ -21,9 +21,14 @@
       {{ usedParams.frame_width || '—' }}×{{ usedParams.frame_height || '—' }}</span
     >
     <span class="kpi"
-      >disp {{ settings.display_width || '—' }}×{{
-        settings.display_height || '—'
-      }}</span
+      >preview {{
+        settings.preview_div === 1 || usedParams.preview_div === 1
+          ? 'full'
+          : '1/' + (settings.preview_div || usedParams.preview_div || '—')
+      }}
+      {{ usedParams.dispresol && usedParams.dispresol.width
+        ? usedParams.dispresol.width + '×' + usedParams.dispresol.height
+        : '' }}</span
     >
     <span class="kpi"
       >save {{ usedParams.save_enabled ? 'on' : 'off' }}

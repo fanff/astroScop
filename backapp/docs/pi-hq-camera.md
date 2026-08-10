@@ -104,7 +104,7 @@ Full field list and legacy aliases: [camera-settings-contract.md](camera-setting
 | `colour_gain_r/b` | `ColourGains` | `AwbEnable=False` |
 | `sensor_preset` (+ optional `main_*`) | still config + sensor mode | **Slow** — reconfigure |
 | `scaler_crop` | `ScalerCrop` | **Fast**; RGB FOV only (Bayer stays full) |
-| `display_width/height` | client resize only | Does not change sensor capture |
+| `preview_div` | JPEG downsample only | `1`/`2`/`4`/`8` of capture RGB; aspect preserved; does not change sensor capture |
 | `max_emit_fps` | emit throttle | Default 8 |
 
 Science path forces AE off, AWB off, minimal NR, neutral tone mapping.
