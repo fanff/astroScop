@@ -82,21 +82,36 @@ Invalid `data` is logged and **ignored** (previous settings stay live). Validati
     "science_dropped": 0,
     "science_written": 38,
     "science_errors": 0,
+    "science_pending": 2,
+    "science_slots": 199,
     "save_enabled": true,
     "save_root": "./savedimgs",
     "emitted": 12,
     "skipped": 40,
-    "max_emit_fps": 8.0
+    "max_emit_fps": 8.0,
+    "capture_fps": 11.2,
+    "frame_time_ms": 89.3,
+    "science_publish_fps": 11.2,
+    "science_write_fps": 10.5,
+    "emit_fps": 4.0,
+    "queue_fill_eta_s": 281.4
   }
 }
 ```
+
+Rate fields are computed over the last timing window:
+
+- `capture_fps` / `frame_time_ms` — wall-clock capture loop (independent of preview latency).
+- `science_publish_fps` / `science_write_fps` — science ring enqueue / disk write rates.
+- `emit_fps` — preview WS emits in the window (`emitted / Δt`).
+- `queue_fill_eta_s` — net fill ETA: `(slots − pending) / max(0, publish − write)`; `null` when save is off or the queue is not filling.
 
 Emit policy: **≤ `max_emit_fps` (default 8)**. Extra frames are skipped so acquisition keeps CPU. UI/rootserver must not assume every captured frame is sent.
 
 Steady-state acquisition priority:
 
 - Capture runs in a dedicated thread pool; preview JPEG/spectrum packing runs in a separate emit pool (not on the asyncio loop).
-- Bayer science frames (when `save_enabled`) are published into a **shared_memory ring** and written by a **separate OS process** ([`cam_storage.py`](../cam_storage.py)) — never RGB/JPEG to disk.
+- Bayer science frames (when `save_enabled`) are published into a **single contiguous shared_memory slab** (ring of slots) and written by a **separate OS process** ([`cam_storage.py`](../cam_storage.py)) — never RGB/JPEG to disk. Ring size ≈ 60% RAM / frame (also capped by `/dev/shm`).
 - Preview uses a depth-1 buffer; science publish does **not** go through that buffer.
 - Slow reconfigure (sensor mode / `include_raw`) may briefly block; output fields (`save_*`, display, emit FPS) do not.
 
@@ -110,14 +125,14 @@ Preferred `params.data` shape. Extra keys are **ignored** (`extra="ignore"`). Ty
 
 | Field | Type | Default | Class | Notes |
 |-------|------|---------|-------|-------|
-| `sensor_preset` | `"full"` \| `"bin2x2"` \| `"bin2x2_1080"` \| `"bin2x2_crop"` | `"bin2x2"` | **slow** | Native IMX477 modes only |
+| `sensor_preset` | `"full"` \| `"full_2160"` \| `"bin2x2"` \| `"bin2x2_1080"` \| `"bin2x2_crop"` | `"bin2x2"` | **slow** | Native IMX477 modes only |
 | `main_width` | int ≥ 2 or null | `null` | **slow** | Must pair with `main_height`; if both null → preset size |
 | `main_height` | int ≥ 2 or null | `null` | **slow** | |
 | `include_raw` | bool | `true` | **slow** | Configure raw Bayer stream |
 | `shutter_us` | int 1…600_000_000 | `150000` | **fast** | Exposure microseconds |
 | `analog_gain` | float (0, 64] | `1.0` | **fast** | **Only** gain control |
-| `colour_gain_r` | float (0, 32] | `1.0` | **fast** | AWB always off |
-| `colour_gain_b` | float (0, 32] | `1.0` | **fast** | |
+| `colour_gain_r` | float (0, 32] | `3.5` | **fast** | AWB always off |
+| `colour_gain_b` | float (0, 32] | `1.5` | **fast** | |
 | `scaler_crop` | `[x,y,w,h]` or null | `null` | **fast** | Sensor coords; w/h forced even |
 | `science_neutral` | bool | `true` | **fast** | Worker path is always manual / neutral tone |
 | `display_width` | int ≥ 2 | `640` | **output** | Resize for WS JPEG only |
@@ -149,8 +164,8 @@ Classification is implemented by `diff_settings()` in [`cam_settings.py`](../cam
     "include_raw": true,
     "shutter_us": 500000,
     "analog_gain": 2.5,
-    "colour_gain_r": 1.0,
-    "colour_gain_b": 1.0,
+    "colour_gain_r": 3.5,
+    "colour_gain_b": 1.5,
     "scaler_crop": null,
     "science_neutral": true,
     "display_width": 640,
@@ -202,6 +217,7 @@ Ignored / unused for science path (may appear in old blobs): `expomode`, `bright
 | `sensor_preset` | Size | Meaning |
 |-----------------|------|---------|
 | `full` | 4056×3040 | Full sensor, 1×1 |
+| `full_2160` | 4056×2160 | Full-width 16:9 crop, 1×1 |
 | `bin2x2` | 2028×1520 | Native 2×2, full FOV (default) |
 | `bin2x2_1080` | 2028×1080 | 2×2 + 16:9 vertical crop |
 | `bin2x2_crop` | 1332×990 | 2×2 of **center** crop (~2664×1980 window), high fps |
@@ -276,10 +292,10 @@ Expose controls that match the canonical fields. Suggested UX:
 
 | Control | Bound to | Notes |
 |---------|----------|-------|
-| Sensor mode | `sensor_preset` | Enum of four presets only |
+| Sensor mode | `sensor_preset` (+ optional `main_*`) | Five native IMX477 modes; UI may offer RGB main downscales |
 | Exposure | `shutter_us` | µs; optional human “seconds” display |
 | Gain | `analog_gain` | Continuous float — **no ISO slider** |
-| Colour R/B | `colour_gain_r/b` | Default 1.0; AWB off |
+| Colour R/B | `colour_gain_r/b` | Default 3.5 / 1.5; AWB off |
 | ROI (optional) | `scaler_crop` | Or “center crop %” helper that sends `[x,y,w,h]` |
 | Preview size | `display_width/height` | Independent of sensor mode |
 | Preview FPS cap | `max_emit_fps` | Default 8 |

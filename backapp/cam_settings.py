@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 # Re-export for callers that historically imported SpectrumStats from here.
 from cam_spectrum import SpectrumStats  # noqa: F401
 
-SensorPresetName = Literal["full", "bin2x2", "bin2x2_1080", "bin2x2_crop"]
+SensorPresetName = Literal["full", "full_2160", "bin2x2", "bin2x2_1080", "bin2x2_crop"]
 
 SLOW_FIELDS = frozenset(
     {
@@ -79,8 +79,8 @@ class CameraSettings(BaseModel):
 
     shutter_us: int = Field(default=150000, ge=1, le=600_000_000)
     analog_gain: float = Field(default=1.0, gt=0.0, le=64.0)
-    colour_gain_r: float = Field(default=1.0, gt=0.0, le=32.0)
-    colour_gain_b: float = Field(default=1.0, gt=0.0, le=32.0)
+    colour_gain_r: float = Field(default=3.5, gt=0.0, le=32.0)
+    colour_gain_b: float = Field(default=1.5, gt=0.0, le=32.0)
     scaler_crop: Optional[Tuple[int, int, int, int]] = None
     science_neutral: bool = True
 
@@ -240,7 +240,7 @@ def from_legacy_dict(
     elif "shootresol" in raw and isinstance(raw["shootresol"], dict):
         sr = raw["shootresol"]
         name = sr.get("name")
-        if name in ("full", "bin2x2", "bin2x2_1080", "bin2x2_crop"):
+        if name in ("full", "full_2160", "bin2x2", "bin2x2_1080", "bin2x2_crop"):
             kwargs["sensor_preset"] = name
         w, h = sr.get("width"), sr.get("height")
         if w and h:

@@ -22,6 +22,7 @@ log = logging.getLogger("ws_messages")
 # Size table for legacy shootresol → preset mapping (no picamera2 import).
 SENSOR_PRESETS: Dict[str, Dict[str, Any]] = {
     "full": {"size": (4056, 3040)},
+    "full_2160": {"size": (4056, 2160)},
     "bin2x2": {"size": (2028, 1520)},
     "bin2x2_1080": {"size": (2028, 1080)},
     "bin2x2_crop": {"size": (1332, 990)},
@@ -45,17 +46,27 @@ class ServerOverwhelmedMessage(BaseModel):
 class CamTimingData(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    imgbuffcount: int = 0
-    tosavecount: int = 0  # legacy alias; prefer science_* counters
+    imgbuffcount: int = 0  # preview MsgBuff depth (0/1)
+    tosavecount: int = 0  # science pending slots (legacy name)
     science_published: int = 0
     science_dropped: int = 0
     science_written: int = 0
     science_errors: int = 0
+    science_pending: int = 0
+    science_slots: int = 0
     save_enabled: bool = False
     save_root: Optional[str] = None
     emitted: int = 0
     skipped: int = 0
     max_emit_fps: float = 8.0
+    # Rates over the last ~3s timing window (wall-clock capture, not preview latency).
+    capture_fps: float = 0.0
+    frame_time_ms: float = 0.0
+    science_publish_fps: float = 0.0
+    science_write_fps: float = 0.0
+    emit_fps: float = 0.0
+    # Net fill ETA: free / max(0, publish_fps - write_fps); null when not filling.
+    queue_fill_eta_s: Optional[float] = None
 
 
 class CamTimingMessage(BaseModel):

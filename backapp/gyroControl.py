@@ -7,8 +7,7 @@ import numpy as np
 import websockets
 from websockets import WebSocketClientProtocol
 
-from jobutils import clientConnection, Jobstate, parse_args
-from stepperControl import infiniteRetry
+from jobutils import clientConnection, Jobstate, infiniteRetry, parse_args
 
 
 def cart2sph(c):

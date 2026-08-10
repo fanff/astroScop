@@ -57,6 +57,7 @@ Named presets exposed to UI/rootserver (`SENSOR_PRESETS` in [`cam_picamera2.py`]
 | Preset | Size | Notes |
 |--------|------|-------|
 | `full` | 4056×3040 | Whole sensor, 1×1 |
+| `full_2160` | 4056×2160 | Full-width 16:9 crop, 1×1 |
 | `bin2x2` | 2028×1520 | **Native 2×2**, full FOV (worker default) |
 | `bin2x2_1080` | 2028×1080 | 2×2 + 16:9 vertical crop |
 | `bin2x2_crop` | 1332×990 | 2×2 of **center** crop — *not* full-FOV 3×3/4×4 |
@@ -87,7 +88,6 @@ UI  →  rootserver (ws://…:8765)  →  cam_picamera2.py  →  Picamera2 / IMX
 - Inbound `msgtype: "params"` is validated into `CameraSettings` (see [contract](camera-settings-contract.md)).
 - Preview emit: resized JPEG as `srcimage`, capped at **`max_emit_fps` (default 8)**; extras skipped.
 - Optional Bayer science save: runtime `save_enabled` + `save_root` → separate storage **process** writes `*_bayer.npy` + `*_meta.json` (see [`cam_storage.py`](../cam_storage.py)). RGB/JPEG are preview-only.
-- Legacy worker [`cam_ex3.py`](../cam_ex3.py) is protocol history only — **do not** copy its ISO/gain behaviour.
 
 ### Control mapping (canonical → libcamera)
 
@@ -226,6 +226,5 @@ sudo systemctl enable --now astroscop-camera.service
 | [`scripts/run_cam_settings_bench.ps1`](../scripts/run_cam_settings_bench.ps1) | Sync → settings bench → pull |
 | [`hq-camera-capability-report.md`](hq-camera-capability-report.md) | Capability aggregation |
 | [`cam-settings-bench-report.md`](cam-settings-bench-report.md) | Latest settings bench |
-| [`cam_ex3.py`](../cam_ex3.py) | Legacy worker (do not copy ISO behaviour) |
 | [`deploy/astroscop-camera.service`](../deploy/astroscop-camera.service) | systemd unit |
 | [`deploy/install_on_pi.sh`](../deploy/install_on_pi.sh) | Pi install helper |

@@ -15,16 +15,63 @@ from pathlib import Path
 import numpy as np
 
 from cam_settings import CameraSettings, from_legacy_dict
-from cam_storage import ScienceStorageClient, write_bayer_frame
+from cam_storage import ScienceStorageClient, write_bayer_frame, compute_ring_slots
 from jobutils import MsgBuff
 
 
 SENSOR_PRESETS = {
     "full": {"size": (4056, 3040)},
+    "full_2160": {"size": (4056, 2160)},
     "bin2x2": {"size": (2028, 1520)},
     "bin2x2_1080": {"size": (2028, 1080)},
     "bin2x2_crop": {"size": (1332, 990)},
 }
+
+
+def test_compute_ring_slots_from_ram_budget():
+    # 8 GiB * 0.60 / 30 MiB ≈ 163 (ignore host /dev/shm)
+    eight_gib = 8 * 1024 ** 3
+    thirty_mib = 30 * 1024 ** 2
+    huge_shm = 64 * 1024 ** 3
+    n = compute_ring_slots(
+        thirty_mib, ram_fraction=0.60, total_ram=eight_gib, shm_nbytes=huge_shm
+    )
+    assert n == 163
+    # Smaller live Bayer → more slots
+    bin2 = 2028 * 1520 * 2
+    n2 = compute_ring_slots(
+        bin2, ram_fraction=0.60, total_ram=eight_gib, shm_nbytes=huge_shm
+    )
+    assert n2 > n
+    assert (
+        compute_ring_slots(
+            thirty_mib, total_ram=64 * 1024 ** 2, shm_nbytes=huge_shm
+        )
+        >= 16
+    )
+
+
+def test_compute_ring_slots_clamped_by_shm():
+    eight_gib = 8 * 1024 ** 3
+    thirty_mib = 30 * 1024 ** 2
+    # Only ~300 MiB shm → 0.85*300/30 ≈ 8 → clamp up to min 16
+    n = compute_ring_slots(
+        thirty_mib,
+        ram_fraction=0.60,
+        total_ram=eight_gib,
+        shm_nbytes=300 * 1024 ** 2,
+        shm_fraction=0.85,
+    )
+    assert n == 16
+    # 2 GiB shm → 0.85*2GiB/30MiB ≈ 58
+    n2 = compute_ring_slots(
+        thirty_mib,
+        ram_fraction=0.60,
+        total_ram=eight_gib,
+        shm_nbytes=2 * 1024 ** 3,
+        shm_fraction=0.85,
+    )
+    assert 50 <= n2 <= 60
 
 
 def test_write_bayer_frame_only_npy_and_meta():
@@ -75,6 +122,18 @@ def test_preview_depth1_science_independent():
     assert preview.content[0][1]["i"] == 4
     assert published == [0, 1, 2, 3, 4]
     assert id(preview.content[0][0]) == id(preview.content[0][0])
+
+
+def test_storage_uses_single_shm_slab():
+    client = ScienceStorageClient(n_slots=8)
+    try:
+        client.start(slot_nbytes=32 * 1024)
+        assert client._shm is not None
+        assert client._shm.size == 8 * 32 * 1024
+        assert client.n_slots == 8
+    finally:
+        client.shutdown()
+        assert client._shm is None
 
 
 def test_storage_process_writes_and_runtime_disable():
@@ -222,9 +281,12 @@ def test_camera_settings_output_diff_includes_save_root():
 
 if __name__ == "__main__":
     # multiprocessing spawn needs this guard on Windows
+    test_compute_ring_slots_from_ram_budget()
+    test_compute_ring_slots_clamped_by_shm()
     test_write_bayer_frame_only_npy_and_meta()
     test_settings_save_enabled_and_root_runtime()
     test_preview_depth1_science_independent()
+    test_storage_uses_single_shm_slab()
     test_storage_process_writes_and_runtime_disable()
     test_publish_nonblocking_when_ring_full()
     test_emit_pack_off_loop_does_not_block_schedule()

@@ -8,8 +8,8 @@ single ``set_controls`` (including ScalerCrop). Canonical gain is continuous
 
 Agent-facing contract (rootserver + UI): docs/camera-settings-contract.md
 
-Speaks the same WebSocket message types as ``cam_ex3.py`` (params / srcimage /
-camTiming) so the hub can migrate UI payloads without changing path names.
+WebSocket message types: ``params`` (inbound), ``srcimage`` / ``camTiming``
+(outbound) on the camera path used by rootserver and the UI.
 """
 
 import asyncio
@@ -34,6 +34,7 @@ from cam_settings import (
 )
 from cam_spectrum import compute_rgb_spectrum
 from cam_storage import ScienceStorageClient
+from cam_timing_rates import CaptureClock, compute_timing_rates
 
 continue_loop = True
 pending_settings = None  # CameraSettings | None — queued from WS
@@ -55,7 +56,10 @@ _EMIT_POOL = concurrent.futures.ThreadPoolExecutor(
 )
 
 # Bayer persistence in a separate process (GIL-free vs camera loop).
-SCIENCE_STORAGE = ScienceStorageClient(n_slots=16)
+SCIENCE_STORAGE = ScienceStorageClient()  # auto ring: ~60% RAM / Bayer slot size
+
+# Wall-clock capture cadence (independent of preview emit throttle).
+CAPTURE_CLOCK = CaptureClock()
 
 # Cached Picamera2.sensor_modes (expensive property) keyed by camera instance id.
 _SENSOR_MODES_CACHE = {}
@@ -123,6 +127,12 @@ SENSOR_PRESETS = {
         "description": "full sensor readout (no binning)",
         "binning": "1x1",
         "fov": "full",
+    },
+    "full_2160": {
+        "size": (4056, 2160),
+        "description": "full-width 16:9 crop (no binning)",
+        "binning": "1x1",
+        "fov": "crop_16_9",
     },
     "bin2x2": {
         "size": (2028, 1520),
@@ -984,6 +994,7 @@ async def open_camera(settings):
             used = used_params_from_settings(
                 picam2, current_settings, rgb.shape, metadata=md
             )
+            CAPTURE_CLOCK.note_capture(time.monotonic())
             if bayer_u16 is not None:
                 publish_science_frame(bayer_u16, raw_info, used, current_settings)
             PREVIEW_BUFF.stack((rgb, used, used["triggerDate"]))
@@ -1083,10 +1094,14 @@ async def bg_job():
     global current_settings
     log = logging.getLogger("imgForwd")
     sleepdur = 0.05
-    lastTimingSend = 0
+    lastTimingSend = 0.0
     lastEmit = 0.0
     skipped = 0
     emitted = 0
+    prev_capture_count = 0
+    prev_published = 0
+    prev_written = 0
+    prev_rate_mono = time.monotonic()
 
     while True:
         try:
@@ -1140,19 +1155,43 @@ async def bg_job():
                 await asyncio.sleep(sleepdur)
 
             if time.time() > lastTimingSend + 3:
+                now_mono = time.monotonic()
                 lastTimingSend = time.time()
                 st = SCIENCE_STORAGE.poll_stats()
+                save_enabled = (
+                    current_settings.science_save_active()
+                    if current_settings
+                    else False
+                )
+                capture_count, frame_time_ms = CAPTURE_CLOCK.snapshot()
+                dt_s = max(1e-3, now_mono - prev_rate_mono)
+                rates = compute_timing_rates(
+                    dt_s=dt_s,
+                    capture_delta=max(0, capture_count - prev_capture_count),
+                    frame_time_ms=frame_time_ms,
+                    published_delta=max(0, int(st.published) - prev_published),
+                    written_delta=max(0, int(st.written) - prev_written),
+                    emitted=emitted,
+                    science_pending=int(st.pending),
+                    science_slots=int(st.n_slots or SCIENCE_STORAGE.n_slots),
+                    save_enabled=save_enabled,
+                )
+                prev_capture_count = capture_count
+                prev_published = int(st.published)
+                prev_written = int(st.written)
+                prev_rate_mono = now_mono
                 timingData = {
+                    # Preview path only (depth-1). NOT the science save queue.
                     "imgbuffcount": len(PREVIEW_BUFF.content),
+                    # Legacy name: science ring slots in flight (pending disk write).
+                    "tosavecount": int(st.pending),
                     "science_published": st.published,
                     "science_dropped": st.dropped,
                     "science_written": st.written,
                     "science_errors": st.errors,
-                    "save_enabled": (
-                        current_settings.science_save_active()
-                        if current_settings
-                        else False
-                    ),
+                    "science_pending": int(st.pending),
+                    "science_slots": int(st.n_slots or SCIENCE_STORAGE.n_slots),
+                    "save_enabled": save_enabled,
                     "save_root": (
                         current_settings.save_root if current_settings else None
                     ),
@@ -1160,6 +1199,16 @@ async def bg_job():
                     "skipped": skipped,
                     "max_emit_fps": (
                         current_settings.max_emit_fps if current_settings else 8.0
+                    ),
+                    "capture_fps": round(rates.capture_fps, 3),
+                    "frame_time_ms": round(rates.frame_time_ms, 2),
+                    "science_publish_fps": round(rates.science_publish_fps, 3),
+                    "science_write_fps": round(rates.science_write_fps, 3),
+                    "emit_fps": round(rates.emit_fps, 3),
+                    "queue_fill_eta_s": (
+                        None
+                        if rates.queue_fill_eta_s is None
+                        else round(rates.queue_fill_eta_s, 2)
                     ),
                 }
                 log.info("some info %s ", timingData)

@@ -1,0 +1,18 @@
+[Unit]
+Description=astroScop motor worker (Pico ASC+DEC USB serial)
+After=network.target astroscop-rootserver.service
+Requires=astroscop-rootserver.service
+
+[Service]
+Type=simple
+User=fanf
+Group=fanf
+SupplementaryGroups=dialout
+WorkingDirectory=/home/fanf/astroScop/backapp
+ExecStart=/usr/bin/python3 /home/fanf/astroScop/backapp/motorControl.py
+Restart=always
+RestartSec=3
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
