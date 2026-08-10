@@ -1,24 +1,26 @@
 # wasp
 
-## Project setup
+Vue 3 + Vite UI for the astroScop telescope hub (`ws://host:8765`).
+
+Emits canonical `CameraSettings` (`params`) and motor `ctlparams` per
+`backapp/docs/camera-settings-contract.md`.
+
+## Setup
+
 ```
 npm install
 ```
 
-### Compiles and hot-reloads for development
+### Dev server
+
 ```
 npm run serve
 ```
 
-### Compiles and minifies for production
+### Production build
+
 ```
 npm run build
 ```
 
-### Lints and fixes files
-```
-npm run lint
-```
-
-### Customize configuration
-See [Configuration Reference](https://cli.vuejs.org/config/).
+Deploy with `./buildandpush.sh` (build + rsync to `scope`).

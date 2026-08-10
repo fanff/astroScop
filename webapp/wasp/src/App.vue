@@ -1,241 +1,199 @@
 <template>
   <div id="app">
+    <div class="shell">
+      <header class="toolbar">
+        <div class="conn">
+          <label class="conn-status" v-if="wsconnected">connected</label>
+          <label class="conn-status" v-else>____</label>
+          <button class="conn-btn" type="button" @click="makeConnection()">
+            connect
+          </button>
+          <input class="conn-ip" v-model="wsip" />
+        </div>
+        <button type="button" @click="onshowsettings()">camera</button>
+        <button type="button" @click="onshowmotorstats()">motors</button>
+        <div class="toolbar-end">
+          <memstats :memStats="diskUsage" />
+        </div>
+      </header>
 
-     <div class="parent">
-         <div class="div1">
-             <div>
-                
-                 <label v-if="wsconnected">
-                     connected
-                 </label>
-                 <label v-if="wsconnected==false">
-                     ____
-                 </label>
+      <section class="stage">
+        <div class="preview">
+          <imgDisplay v-if="wsconnected" :imgProps="{}" :imgData="imgData" />
+        </div>
 
-                <button v-on:click="makeConnection()">connect</button> 
-                 <input  v-model="wsip"/>
-                <button v-on:click="onshowsettings()">Settings</button> 
-                <button v-on:click="onshowstats()">Stats</button> 
-                <button v-on:click="onshowmotorstats()">MotorStats</button> 
-                <button v-on:click="onshowCamStats()">Caminfo</button> 
-                <button v-on:click="onshowMemStats()">MemStats</button> 
-                <button v-on:click="onconfigLayerSwitch()">ConfigLayer</button> 
-             </div>
-                
-         </div>
-         <div class="div2">
-             <div v-if="wsconnected">
-                 <imgDisplay v-bind:imgProps="{}" 
-               v-bind:imgData="imgData"></imgDisplay >
-             </div>
+        <div class="hudScroll">
+          <div class="overlays">
+            <div v-show="showMotorstats">
+              <stepperControl
+                :slidestyle="slidestyle"
+                :motorStats="motorStats"
+                @newMotorParams="newMotorParams"
+              />
+            </div>
+
+            <div v-show="showSettings" class="settings-stack">
+              <div class="cam-inline">
+                <imgStats :imgStats="imgStats" />
+                <camStats :camStats="camStats" />
+                <imgProps :imgProps="imgProps" />
+              </div>
+              <captureOptions
+                :slidestyle="slidestyle"
+                @newParams="newParams"
+                @newMotorParams="newMotorParams"
+              />
+            </div>
           </div>
-          <div class="configLayer" v-show="configLayerActive"> 
-              <div v-show="showStats"> 
-                <imgProps  v-bind:imgStats="imgStats" v-bind:imgProps="imgProps"></imgProps>
-              </div>
-
-              <div v-show="showCamStats"> 
-                camera info 
-                <camStats v-bind:camStats="camStats"></camStats>
-              </div>
-              <div v-show="showMemStats"> 
-                memory info 
-                <memstats v-bind:memStats="diskUsage"></memstats>
-              </div>
-              <div v-show="showMotorstats"> 
-                <stepperControl v-bind:slidestyle="slidestyle"
-                v-on:newMotorParams="newMotorParams" 
-                
-                ></stepperControl>
-                <motorStats v-bind:motorStats="motorStats"></motorStats>
-
-              </div>
-              <div v-show="showSettings"> 
-                   <captureOptions v-bind:slidestyle="slidestyle" v-on:newParams="newParams" v-on:newMotorParams="newMotorParams" ></captureOptions >
-                   <sonyControl 
-                        v-bind:seqinfo="sonyseqinfo" 
-                        v-bind:cameraConfig="sonycameraConfig" 
-
-                   v-on:sonyConfig_param="sonyConfig_param"
-                   v-on:sonyShoot="sonyShoot"
-                   
-                   
-                   ></sonyControl >
-              </div>
-          </div>
-     </div> 
-     
+        </div>
+      </section>
+    </div>
   </div>
 </template>
 
 <script>
-
 import captureOptions from './components/captureOptions.vue'
 import imgDisplay from './components/imgDisplay.vue'
 import imgProps from './components/imgProps.vue'
-import motorStats from './components/motorStats.vue'
+import imgStats from './components/imgStats.vue'
 import memstats from './components/memoryStats.vue'
 import camStats from './components/cameraStats.vue'
 import stepperControl from './components/stepperControl.vue'
-import sonyControl from './components/sonyControl.vue'
+import {
+  buildParamsMessage,
+  buildCtlParamsMessage,
+  parseInbound,
+  INBOUND_TYPES,
+} from './ws/messages.js'
+
+const STATS_CAP = 100
+const WSIP_STORAGE_KEY = 'astroscop.wsip'
+
+function loadStoredWsip() {
+  try {
+    const stored = localStorage.getItem(WSIP_STORAGE_KEY)
+    if (stored && stored.trim()) return stored.trim()
+  } catch {
+    /* ignore */
+  }
+  return 'localhost'
+}
 
 export default {
   name: 'App',
   components: {
-    captureOptions,imgDisplay, imgProps,motorStats,memstats,camStats,stepperControl,sonyControl
+    captureOptions,
+    imgDisplay,
+    imgProps,
+    imgStats,
+    memstats,
+    camStats,
+    stepperControl,
   },
-  data () {
+  data() {
     return {
-        wsconnected:false,
-        wsip:"localhost",
-        
-
-        configLayerActive:true, 
-        
-        imgData:"",
-        imgProps:{},
-        imgStats:{},
-        showSettings:true,
-        showStats:true,
-        showMotorstats:true,
-        showCamStats:true,
-        showMemStats:true,
-        diskUsage:[],
-        slidestyle:{
-            backgroundColor: '#c7221c'
-        },
-        camStats:[],
-        motorStats:[],
-
-        sonyseqinfo:{},
-        sonycameraConfig:[]
+      wsconnected: false,
+      wsip: loadStoredWsip(),
+      connection: null,
+      imgData: '',
+      imgProps: {},
+      imgStats: {},
+      showSettings: false,
+      showMotorstats: false,
+      diskUsage: [],
+      slidestyle: {
+        backgroundColor: '#c7221c',
+      },
+      camStats: [],
+      motorStats: [],
     }
   },
   methods: {
-      onmessage:function(msg){
-          var data = JSON.parse(msg.data)
-          var msgtype = data.msgtype
-          if(msgtype=="imgData"){
-            this.imgData = data.data
+    onmessage(msg) {
+      const parsed = parseInbound(msg.data)
+      if (!parsed) {
+        console.warn('invalid inbound message')
+        return
+      }
+      const { msgtype, data, raw } = parsed
+      switch (msgtype) {
+        case INBOUND_TYPES.imgData:
+          this.imgData = data
+          break
+        case INBOUND_TYPES.imgProps:
+          this.imgProps = data || {}
+          break
+        case INBOUND_TYPES.imgStats:
+          this.imgStats = data || {}
+          break
+        case INBOUND_TYPES.sysInfo:
+          this.diskUsage = data || []
+          break
+        case INBOUND_TYPES.motorInfo:
+          while (this.motorStats.length >= STATS_CAP) {
+            this.motorStats.shift()
           }
-          else if(msgtype=="imgProps"){
-            this.imgProps = data.data
+          this.motorStats.push(raw)
+          break
+        case INBOUND_TYPES.camTiming:
+          while (this.camStats.length >= STATS_CAP) {
+            this.camStats.shift()
           }
-          else if(msgtype=="imgStats"){
-            this.imgStats = data.data
-          }
-          else if(msgtype=="sysInfo"){
-
-              //console.log("got sys info",data.data)
-            this.diskUsage = data.data;//((data.data.used/data.data.total)*100).toFixed(1);
-          }
-          else if(msgtype=="motorInfo"){
-            while(this.motorStats.length>=100){
-              this.motorStats.shift();
-            }
-            this.motorStats.push(data);
-
-
-          }else if(msgtype=="camTiming"){
-            while(this.camStats.length>=100){
-              this.camStats.shift();
-            }
-
-            this.camStats.push(data);
-              
-          }else if(msgtype=="sonySequenceInfo"){
-              this.sonyseqinfo = data.data;
-          }else if(msgtype=="sonyCurrentConfig"){
-            console.log("got currentConfig",msgtype,data);
-              this.sonycameraConfig = data.data;
-          }else{
-            console.log("got message",msgtype,data);
-          }
-      },
-      onopen:function(){
-        this.wsconnected = true; 
-      },
-      onclose:function(info){
-        console.log("onClose",info)
-        this.wsconnected = false; 
-      },
-      newParams:function(params){
-          if(this.wsconnected==true){
-              var msg = {
-                  msgtype:"params",
-                data:params}
-            this.connection.send(JSON.stringify(msg));
-          }
-      },
-      newMotorParams:function(params){
-          if(this.wsconnected==true){
-              var msg = {
-                  msgtype:"ctlparams",
-                  k:params.k,
-                  v:params.v}
-            this.connection.send(JSON.stringify(msg));
-          }
-      },
-      sonyConfig_param:function(params){
-          if(this.wsconnected==true){
-              var msg = {
-                  msgtype:"sonyparams",
-                  data:params,
-                  }
-              this.connection.send(JSON.stringify(msg));
-             //console.log("pushed sony params",msg); 
-            }
-     },
-      sonyShoot:function(countPict){
-          if(this.wsconnected==true){
-              var msg = {
-                  msgtype:"sonyShoot",
-                  data:{"countPict":countPict},
-                  }
-            this.connection.send(JSON.stringify(msg));
-          }
-      },
-
-      makeConnection:function(){
-        this.connection = new WebSocket("ws://"+this.wsip+":8765");
-        this.connection.onmessage = this.onmessage;
-        this.connection.onopen = this.onopen;
-        this.connection.onclose = this.onclose;
-
-      },
-      onconfigLayerSwitch:function(){
-        this.configLayerActive = !this.configLayerActive;
-      },
-      onshowmotorstats:function(){
-        this.showMotorstats = !this.showMotorstats;
-      },
-      onshowsettings:function(){
-        this.showSettings = !this.showSettings;
-      },
-      onshowstats:function(){
-        this.showStats = !this.showStats;
-      },
-      onshowCamStats:function(){
-        this.showCamStats = !this.showCamStats;
-      },
-      onshowMemStats:function(){
-        this.showMemStats = !this.showMemStats;
-      },
-
+          this.camStats.push(raw)
+          break
+        default:
+          console.log('got message', msgtype, raw)
+      }
+    },
+    onopen() {
+      this.wsconnected = true
+      try {
+        localStorage.setItem(WSIP_STORAGE_KEY, this.wsip.trim())
+      } catch {
+        /* ignore */
+      }
+    },
+    onclose(info) {
+      console.log('onClose', info)
+      this.wsconnected = false
+    },
+    newParams(params) {
+      if (!this.wsconnected || !this.connection) return
+      this.connection.send(JSON.stringify(buildParamsMessage(params)))
+    },
+    newMotorParams(params) {
+      if (!this.wsconnected || !this.connection) return
+      this.connection.send(JSON.stringify(buildCtlParamsMessage(params)))
+    },
+    makeConnection() {
+      if (this.connection) {
+        try {
+          this.connection.close()
+        } catch {
+          /* ignore */
+        }
+      }
+      this.connection = new WebSocket('ws://' + this.wsip + ':8765')
+      this.connection.onmessage = this.onmessage
+      this.connection.onopen = this.onopen
+      this.connection.onclose = this.onclose
+    },
+    onshowmotorstats() {
+      this.showMotorstats = !this.showMotorstats
+    },
+    onshowsettings() {
+      this.showSettings = !this.showSettings
+    },
   },
-  watch: {
-      //wsip:function(){
-      //  console.log("resetConnection")
-      //  this.wsconnected=false;
-      //  this.connection.close();
-      //  setTimeout(this.makeConnection,1000);
-      //}
+  beforeUnmount() {
+    if (this.connection) {
+      try {
+        this.connection.close()
+      } catch {
+        /* ignore */
+      }
+    }
   },
-  mounted: function(){
-      this.makeConnection();
-  },
-  beforeDestroy(){
-  }
 }
 </script>
 
@@ -244,44 +202,164 @@ export default {
   font-family: Avenir, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  color: var(--fg, #c7221c);
+  background: var(--bg, #050505);
+  min-height: 100vh;
   text-align: center;
-  color: #c7221c;
-  margin-top: 0px;
-  background:black;
-
 }
 
-.vs__selected {
-    color: #c7221c;
-}
-.parent {
-    display: grid;
-    grid-template-columns: 1fr;
-    grid-template-rows: 30px 12fr;
-    grid-column-gap: 1px;
-    grid-row-gap: 0px;
-    
-    grid-template-areas:
-      "a"
-      "b"
+.shell {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
-.div1 { grid-area: a; }
-.div2 { grid-area: b; }
-.configLayer { grid-area: b; }
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--bg, #050505);
+  border-bottom: 1px solid var(--border, #7a1a16);
+  z-index: 3;
+}
 
-/*
-.div1 { grid-area: 1 / 1 / 2 / 2; }
-.div2 { grid-area: 2 / 1 / 3 / 2; }
-.div3 { grid-area: 2 / 1 / 3 / 2; }
-*/
+.conn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 4px;
+}
 
+.conn-status {
+  font-size: 11px;
+  min-width: 4.5em;
+  text-align: left;
+}
+
+.conn-btn {
+  font-size: 11px;
+  padding: 1px 6px;
+  line-height: 1.3;
+}
+
+.conn-ip {
+  font-size: 11px;
+  width: 9em;
+  padding: 1px 4px;
+}
+
+.toolbar-end {
+  margin-left: auto;
+  min-width: 0;
+}
+
+.stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+.preview {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.hudScroll {
+  position: relative;
+  z-index: 2;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+  background: transparent;
+}
+
+.overlays {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 6px 0;
+  box-sizing: border-box;
+  pointer-events: none;
+  background: transparent;
+}
+
+.overlays > * {
+  pointer-events: auto;
+  flex: 0 0 auto;
+}
+
+.settings-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 8px;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+.cam-inline {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  text-align: left;
+}
+
+.cam-inline .hist-band + .kpi-strip,
+.cam-inline .kpi-strip + .kpi-strip {
+  border-top: 1px solid var(--border);
+}
+
+.panel {
+  box-sizing: border-box;
+  min-width: 0;
+  height: auto;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  text-align: left;
+  color: var(--fg, #c7221c);
+}
+
+.panelTitle {
+  font-size: 12px;
+  margin-bottom: 6px;
+  color: var(--fg-dim, #8a2a26);
+  text-transform: lowercase;
+}
 
 button {
-  color: #c7221c;
-  background:black;
-  border-color:#c7221c;
-  font-size: 18px;
+  color: var(--fg, #c7221c);
+  background: #000;
+  border: 1px solid var(--border, #7a1a16);
+  font-size: 16px;
+  cursor: pointer;
 }
 
+input {
+  color: var(--fg, #c7221c);
+  background: #000;
+  border: 1px solid var(--border, #7a1a16);
+}
 </style>

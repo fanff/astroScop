@@ -1,3 +1,4 @@
-vue build src/App.vue 
- 
-rsync -azv dist/* scope:/var/www/html/ 
+#!/usr/bin/env bash
+set -euo pipefail
+npm run build
+rsync -azv dist/* scope:/var/www/html/

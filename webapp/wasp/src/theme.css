@@ -1,0 +1,164 @@
+/* Night-ops theme: keep the UI dark for red-light / night use. */
+
+:root {
+  color-scheme: dark;
+  --bg: #050505;
+  --bg-panel: transparent;
+  --bg-panel-strong: transparent;
+  --fg: #c7221c;
+  --fg-dim: #8a2a26;
+  --border: rgba(122, 26, 22, 0.75);
+  --track: #1a1a1a;
+  --track-fill: #c7221c;
+  --thumb: #c7221c;
+  --thumb-border: #2a0808;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+body {
+  background: var(--bg);
+}
+
+#app {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+button,
+input,
+select,
+textarea {
+  color: var(--fg);
+  background: #000;
+  border: 1px solid var(--border);
+  accent-color: var(--fg);
+  outline: none;
+}
+
+button:hover,
+select:hover {
+  border-color: var(--fg);
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  border-color: var(--fg);
+  box-shadow: 0 0 0 1px var(--fg);
+}
+
+option {
+  background: #000;
+  color: var(--fg);
+}
+
+/* Range sliders — dark track, red thumb (no OS blue / white chrome) */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 18px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 6px 0;
+  cursor: pointer;
+}
+
+input[type='range']::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--track);
+  border: 1px solid var(--border);
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 2px;
+  background: var(--thumb);
+  border: 1px solid var(--thumb-border);
+  box-shadow: none;
+}
+
+input[type='range']::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--track);
+  border: 1px solid var(--border);
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--thumb);
+  border: 1px solid var(--thumb-border);
+  box-shadow: none;
+}
+
+input[type='range']:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+input[type='range']:focus-visible::-webkit-slider-thumb {
+  outline: 1px solid var(--fg);
+}
+
+input[type='checkbox'] {
+  accent-color: var(--fg);
+  width: 1rem;
+  height: 1rem;
+}
+
+input[type='number'],
+input[type='text'] {
+  background: #000;
+  color: var(--fg);
+  border: 1px solid var(--border);
+  caret-color: var(--fg);
+}
+
+/* Kill default UA white flashes around media */
+img {
+  background: #000;
+}
+
+/* Shared HUD / cam-inline KPI text */
+.kpi-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 10px;
+  background: transparent;
+  color: var(--fg, #c7221c);
+  font-family: monospace, sans-serif;
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: left;
+  text-shadow: 0 0 4px #000, 0 1px 2px #000;
+}
+
+.kpi-strip .kpi {
+  white-space: nowrap;
+}
+
+.kpi-strip .kpi-empty {
+  color: var(--fg-dim, #8a2a26);
+}

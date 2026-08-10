@@ -1,357 +1,447 @@
-<template> <div>
-<div class="parent">
-    <div class="cg">
-      <VueSlideBar v-model="bluegain" :min=0 :max=800 
-        :processStyle="{backgroundColor: slidestyle.backgroundColor, color:'blue' }"
-        :lineHeight="10"
-        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor ,color: 'black' }"/>
-      BLUE
+<template>
+  <div class="capture">
+    <div class="panel exposure">
+      <div class="slider-stack">
+        <div class="slider-row">
+          <div class="slider-meta">
+            <span class="slider-name">shutter</span>
+            <span class="slider-val">{{ shutterLabel }}</span>
+          </div>
+          <input
+            type="range"
+            v-model.number="shutter_log"
+            :min="0"
+            :max="shutterLogSteps"
+            step="1"
+          />
+          <div class="shutter-exact">
+            <input
+              type="number"
+              v-model.number="shutter_us"
+              :min="shutterUsMin"
+              :max="shutterUsMax"
+              step="1"
+            />
+            <span class="unit">µs</span>
+            <span class="hint">log · 1 µs – 2 min</span>
+          </div>
+        </div>
 
-      <VueSlideBar v-model="redgain" :min=0 :max=800 
-                   :processStyle="{backgroundColor: slidestyle.backgroundColor}"
-        :lineHeight="10"
-        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor ,color: 'black' }"/>RED
-      
-        
-        <VueSlideBar v-model="analog_gain" :min=100 :max=800
-        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
-        :lineHeight="10"
-        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor ,color: 'black' }"/>
+        <div class="slider-row">
+          <div class="slider-meta">
+            <span class="slider-name">analog_gain</span>
+            <span class="slider-val">{{ analog_gain.toFixed(2) }}</span>
+          </div>
+          <input
+            type="range"
+            v-model.number="analog_gain"
+            min="0.1"
+            max="64"
+            step="0.05"
+          />
+        </div>
 
-       analog_gain
-      <VueSlideBar v-model="digital_gain" :min=100 :max=800
-        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
-        :lineHeight="10"
-        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor ,color: 'black' }"/>
-       digital_gain
-    </div >
+        <div class="slider-row">
+          <div class="slider-meta">
+            <span class="slider-name">colour_gain_r</span>
+            <span class="slider-val">{{ colour_gain_r.toFixed(2) }} · log</span>
+          </div>
+          <input
+            type="range"
+            v-model.number="colour_gain_r_log"
+            :min="0"
+            :max="colourGainLogSteps"
+            step="1"
+          />
+        </div>
 
+        <div class="slider-row">
+          <div class="slider-meta">
+            <span class="slider-name">colour_gain_b</span>
+            <span class="slider-val">{{ colour_gain_b.toFixed(2) }} · log</span>
+          </div>
+          <input
+            type="range"
+            v-model.number="colour_gain_b_log"
+            :min="0"
+            :max="colourGainLogSteps"
+            step="1"
+          />
+        </div>
+      </div>
+    </div>
 
-    <div class="bcss">
-      <VueSlideBar v-model="brightness" :min=0 :max=100
-        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
-        :lineHeight="10"
-        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor,color: 'black'  }"/>Brightness
+    <div class="below">
+      <div class="panel sensor">
+        <label>capture mode</label>
+        <select v-model="captureModeId">
+          <option
+            v-for="m in captureModes"
+            :key="m.id"
+            :value="m.id"
+          >
+            {{ m.label }}
+          </option>
+        </select>
+        <p class="hint">{{ captureModeHint }}</p>
+        <p class="hint">
+          Native sensor modes: crop 1332×990 (fastest), bin2x2 1080/1520,
+          full 2160/3040. “RGB …” variants keep that sensor readout but
+          downscale the RGB stream (reconfigure). Preview size is JPEG-only.
+        </p>
 
-      <VueSlideBar v-model="contrast" :min=-100 :max=100 
-        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
-        :lineHeight="10"
-        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor ,color: 'black' }"/>Contrast
-      <VueSlideBar v-model="saturation" :min=-100 :max=100 
-        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
-        :lineHeight="10"
-        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor ,color: 'black' }"/>Saturation
-      <VueSlideBar v-model="sharpness" :min=-100 :max=100 
-        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
-        :lineHeight="10"
-        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor ,color: 'black' }"/>Sharpness
-      <VueSlideBar v-model="exposure_compensation" :min=-25 :max=25  
-        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
-        :lineHeight="10"
-        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor ,color: 'black' }"/>Exposure
+        <label>preview size (JPEG only)</label>
+        <select v-model="displayPreset">
+          <option
+            v-for="d in displayPresets"
+            :key="d.label"
+            :value="d.label"
+          >
+            {{ d.label }}
+          </option>
+        </select>
 
-    </div >
+        <div class="slider-row">
+          <div class="slider-meta">
+            <span class="slider-name">max_emit_fps</span>
+            <span class="slider-val">{{ max_emit_fps }}</span>
+          </div>
+          <input
+            type="range"
+            v-model.number="max_emit_fps"
+            min="0.5"
+            max="30"
+            step="0.5"
+          />
+        </div>
+      </div>
 
+      <div class="panel saveopt">
+        <label>
+          <input type="checkbox" v-model="save_enabled" />
+          save_enabled (Bayer .npy)
+        </label>
 
-    <div class="ie">
-       
-        iso<v-select v-model="isovalue" :options="isovalues" ></v-select>
-       expomode<v-select v-model="expomode" :options="expomodes" ></v-select>
-        
-      captureMethod<v-select v-model="capture_format" :options="capture_formats" ></v-select>
-      shootresol<v-select v-model="shootresol" :options="resols" label="name"></v-select>
+        <label>save_root</label>
+        <input type="text" v-model="save_root" />
 
-      denoise<v-select v-model="denoise" :options="denoise_opts" label="name"></v-select>
-    </div >
+        <label>save_section</label>
+        <select v-model="save_section">
+          <option v-for="s in saveSections" :key="s" :value="s">{{ s }}</option>
+        </select>
 
-
-    <div class="ss">
-      <VueSlideBar v-model="value1" :min=0 :max=120
-        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
-        :lineHeight="10"
-        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor ,color: 'black' }"/>
-      <VueSlideBar v-model="value2" :min=0 :max=1000000
-        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
-        :lineHeight="10"
-        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor,color: 'black'  }"/>
-       
-    </div >
-
-
-    <div class="saveopt">
-      dispresol<v-select v-model="dispresol" :options="resols" label="name"></v-select>
-      saveFormat<v-select v-model="save_format" :options="save_formats" ></v-select>
-      saveSection<v-select v-model="save_section" :options="save_sections" ></v-select>
-
-      subsection  <input v-model="save_subsection" >
-      
-      <button v-on:click="pushParams()">pushparams</button>
-    </div >
-
-
-
-
-    <div class="zoomopt">
-        cameraZoom: {{calcCrop()}},
-      <VueSlideBar v-model="cameraZoom" :min=0 :max=20 
-        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
-        :lineHeight="10"
-        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor,color: 'black'  }"/>
-      <VueSlideBar v-model="cropXloc" :min=-100 :max=100 
-        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
-        :lineHeight="10"
-        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor,color: 'black'  }"/>
-      <VueSlideBar v-model="cropYloc" :min=-100 :max=100 
-        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
-        :lineHeight="10"
-        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor,color: 'black'  }"/>
-        
-
-    cameraMarker: {{ markXloc}},{{markYloc}}
-
-      <VueSlideBar v-model="markXloc" :min=-100 :max=100 
-        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
-        :lineHeight="10"
-        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor,color: 'black'  }"/>
-      <VueSlideBar v-model="markYloc" :min=-100 :max=100 
-        :processStyle="{backgroundColor: slidestyle.backgroundColor}"
-        :lineHeight="10"
-        :tooltipStyles="{ backgroundColor: slidestyle.backgroundColor, borderColor: slidestyle.backgroundColor,color: 'black'  }"/>
-        <form>
-          <label for="cameraWfov">cameraFov:</label><br>
-          <input type="number" name="cameraWfov" v-model="cameraWfov"><br>
-        </form> 
-    </div >
-
-
-</div >
-  
-</div></template>
+        <label>save_subsection</label>
+        <input type="text" v-model="save_subsection" />
+      </div>
+    </div>
+  </div>
+</template>
 
 <script>
-import Vue from "vue"
-import VueSlideBar from 'vue-slide-bar'
-
-import vSelect from "vue-select"
-Vue.component("v-select",vSelect)
-import 'vue-select/dist/vue-select.css';
+import {
+  CAPTURE_MODES,
+  DISPLAY_PRESETS,
+  SAVE_SECTIONS,
+  SHUTTER_US_MIN,
+  SHUTTER_US_MAX,
+  SHUTTER_LOG_STEPS,
+  COLOUR_GAIN_LOG_STEPS,
+  defaultCameraSettings,
+  toWireSettings,
+  clampShutterUs,
+  shutterUsToLogPos,
+  shutterLogPosToUs,
+  formatShutterUs,
+  clampColourGain,
+  colourGainToLogPos,
+  colourGainLogPosToGain,
+} from '../ws/cameraSettings.js'
 
 export default {
-  components: {
-    VueSlideBar,vSelect
-  },
-
   name: 'captureOptions',
   props: {
-      slidestyle:{
-          backgroundColor: 'blue'
-      }
+    slidestyle: {
+      type: Object,
+      default: () => ({ backgroundColor: '#c7221c' }),
+    },
   },
-  data () {
+  emits: ['newParams', 'newMotorParams'],
+  data() {
+    const defaults = defaultCameraSettings()
+    const shutter_us = clampShutterUs(defaults.shutter_us)
+    const display =
+      DISPLAY_PRESETS.find(
+        (d) =>
+          d.width === defaults.display_width &&
+          d.height === defaults.display_height
+      ) || DISPLAY_PRESETS[1]
+    const defaultMode =
+      CAPTURE_MODES.find(
+        (m) =>
+          m.sensor_preset === defaults.sensor_preset &&
+          m.main_width == null &&
+          m.main_height == null
+      ) || CAPTURE_MODES[5]
     return {
-      value1: 1,
-      value2: 500,
-      brightness:50,
-      saturation:0,
-      contrast:0,
-      sharpness:0,
-      isovalue:0,
-      isovalues: [0,100,200,300,400,500,600,700,800],
-      capture_format : "rgb",
-      capture_formats: ["jpeg","rgb","yuv"],
-      expomode : "off",
-      expomodes: ["night","off","verylong","fixedfps"],
-      exposure_compensation: 0,
-      redgain:260,
-      bluegain:180,
-      digital_gain:100,
-      analog_gain:100,
-      resols:[ 
-
-          {name:"128x64", width:128,height:64, mode:0},
-          {name:"640x480", width:640,height:480, mode:0},
-          {name:"1280x720", width:1024,height:720, mode:0}, 
-          {name:"1640x1232", width:1640,height:1232, mode:0}, 
-          {name:"1920x1080", width:1920,height:1080, mode:0}, 
-          {name:"1332x990 HQ 2bin", width:1332,height:990, mode:0}, 
-          {name:"2028x1520 HQ 2bin", width:2028,height:1520, mode:0},
-          {name:"4056x3040 HQ Nat", width:4056,height:3040, mode:0},
-          {name:"2028x1088 HQ 3B (1)", width:2028,height:1088, mode:1},
-          {name:"1012x760 HQ 3B (4)", width:1012,height:760, mode:4},
-      ],
-      shootresol:{name:"128x64", width:128,height:64,mode:0},
-      dispresol: {name:"128x64", width:128,height:64,mode:0},
-        
-
-      cameraZoom: 0,
-      cropXloc: 0,
-      cropYloc: 0,
-      markXloc: 0,
-      markYloc: 0,
-      cameraWfov: 22.5,
-
-    denoise_opts:[{name:true},{name:false}],
-    denoise: [{name:false}],
-      save_format:"none",
-      save_formats:["none","tiff","bmp"],
-      
-      save_section:"work",
-      save_sections:["work","test","deep","planet","dark","flats"],
-      
-      save_subsection:"",
-        
-
-      motorSpdSlider:0.0,
-
+      captureModes: CAPTURE_MODES,
+      displayPresets: DISPLAY_PRESETS,
+      saveSections: SAVE_SECTIONS,
+      shutterUsMin: SHUTTER_US_MIN,
+      shutterUsMax: SHUTTER_US_MAX,
+      shutterLogSteps: SHUTTER_LOG_STEPS,
+      colourGainLogSteps: COLOUR_GAIN_LOG_STEPS,
+      captureModeId: defaultMode.id,
+      shutter_us,
+      shutter_log: shutterUsToLogPos(shutter_us),
+      analog_gain: defaults.analog_gain,
+      colour_gain_r: defaults.colour_gain_r,
+      colour_gain_b: defaults.colour_gain_b,
+      colour_gain_r_log: colourGainToLogPos(defaults.colour_gain_r),
+      colour_gain_b_log: colourGainToLogPos(defaults.colour_gain_b),
+      displayPreset: display.label,
+      max_emit_fps: defaults.max_emit_fps,
+      save_enabled: defaults.save_enabled,
+      save_root: defaults.save_root,
+      save_section: defaults.save_section,
+      save_subsection: defaults.save_subsection,
+      _syncing: false,
     }
   },
-  watch:{
-    redgain:function(){this.pushParams()},
-    bluegain:function(){this.pushParams()},
-    brightness:function(){this.pushParams()},
-    saturation:function(){this.pushParams()},
-    sharpness:function(){this.pushParams()},
-    contrast:function(){this.pushParams()},
-    exposure_compensation:function(){this.pushParams()},
-
-    isovalue:function(){this.pushParams()},
-    expomode:function(){this.pushParams()},
-    analog_gain:function(){this.pushParams()},
-    digital_gain:function(){this.pushParams()},
-    value1:function(){this.pushParams()},
-    value2:function(){this.pushParams()},
-
-    capture_format:function(){this.pushParams()},
-    shootresol:function(){this.pushParams()},
-    denoise:function(){this.pushParams()},
-    dispresol:function(){this.pushParams()},
-    save_format:function(){this.pushParams()},
-    save_section:function(){this.pushParams()},
-    save_subsection:function(){this.pushParams()},
-    cameraZoom:function(){this.pushParams()},
-    cropXloc:function(){this.pushParams()},
-    cropYloc:function(){this.pushParams()},
-    markXloc:function(){this.pushParams()},
-    markYloc:function(){this.pushParams()},
+  computed: {
+    shutterLabel() {
+      return `${formatShutterUs(this.shutter_us)} (${this.shutter_us} µs)`
+    },
+    activeCaptureMode() {
+      return (
+        this.captureModes.find((m) => m.id === this.captureModeId) ||
+        this.captureModes[0]
+      )
+    },
+    captureModeHint() {
+      const m = this.activeCaptureMode
+      const main =
+        m.main_width != null
+          ? `RGB ${m.main_width}×${m.main_height}`
+          : 'RGB = sensor size'
+      return `${m.sensor_preset} · ${main} · reopens camera (brief blackout)`
+    },
+  },
+  watch: {
+    // Local UI sync only — camera params are sent when save_enabled is toggled.
+    shutter_log(pos) {
+      if (this._syncing) return
+      this._syncing = true
+      this.shutter_us = shutterLogPosToUs(pos)
+      this._syncing = false
+    },
+    shutter_us(v) {
+      if (this._syncing) return
+      this._syncing = true
+      const clamped = clampShutterUs(v)
+      if (clamped !== v) this.shutter_us = clamped
+      this.shutter_log = shutterUsToLogPos(clamped)
+      this._syncing = false
+    },
+    colour_gain_r_log(pos) {
+      if (this._syncing) return
+      this._syncing = true
+      this.colour_gain_r = colourGainLogPosToGain(pos)
+      this._syncing = false
+    },
+    colour_gain_b_log(pos) {
+      if (this._syncing) return
+      this._syncing = true
+      this.colour_gain_b = colourGainLogPosToGain(pos)
+      this._syncing = false
+    },
+    colour_gain_r(v) {
+      if (this._syncing) return
+      this._syncing = true
+      const clamped = clampColourGain(v)
+      if (clamped !== v) this.colour_gain_r = clamped
+      this.colour_gain_r_log = colourGainToLogPos(clamped)
+      this._syncing = false
+    },
+    colour_gain_b(v) {
+      if (this._syncing) return
+      this._syncing = true
+      const clamped = clampColourGain(v)
+      if (clamped !== v) this.colour_gain_b = clamped
+      this.colour_gain_b_log = colourGainToLogPos(clamped)
+      this._syncing = false
+    },
+    save_enabled() {
+      this.pushParams()
+    },
   },
   methods: {
-      calcCrop(){
-        var shiftRatio = ((this.cameraZoom/21.0))
-
-        return [shiftRatio/2.0 + (this.cropXloc/100.0)*shiftRatio/2,
-            shiftRatio/2.0 + (this.cropYloc/100.0)*shiftRatio/2,
-            1.0-shiftRatio,1.0-shiftRatio]
-      },
-    calcSpeed(){
-        return ( this.motorSpdSlider / 10000)*4.0
+    currentDisplaySize() {
+      return (
+        this.displayPresets.find((d) => d.label === this.displayPreset) ||
+        this.displayPresets[1]
+      )
     },
-    ss () { return this.value2 + 1000000*this.value1;},
-    configData () { return {
-        shutterSpeed:this.ss(),
-        isovalue:this.isovalue,
-        redgain:this.redgain/100.0,
-        bluegain:this.bluegain/100.0,
-        analog_gain:this.analog_gain/100.0,
-        digital_gain:this.digital_gain/100.0,
-        expomode:this.expomode,
-        capture_format:this.capture_format,
-        brightness:this.brightness,
-        saturation:this.saturation,
-        sharpness:this.sharpness,
-        contrast:this.contrast,
-        exposure_compensation:this.exposure_compensation,
-        shootresol:this.ensureResol(this.shootresol),
-        dispresol:this.ensureResol(this.dispresol),
-        denoise:this.denoise.name,
-        save_format:this.save_format,
-        save_section:this.save_section,
-        save_subsection:this.save_subsection,
-        crop : this.calcCrop(),
-        cameraZoom : this.cameraZoom,
-        markXloc:this.markXloc/100.0,
-        markYloc:this.markYloc/100.0,
-        cameraWfov:this.cameraWfov,
-
-
-      }
+    configData() {
+      const disp = this.currentDisplaySize()
+      const mode = this.activeCaptureMode
+      return toWireSettings({
+        sensor_preset: mode.sensor_preset,
+        main_width: mode.main_width,
+        main_height: mode.main_height,
+        shutter_us: this.shutter_us,
+        analog_gain: this.analog_gain,
+        colour_gain_r: this.colour_gain_r,
+        colour_gain_b: this.colour_gain_b,
+        display_width: disp.width,
+        display_height: disp.height,
+        max_emit_fps: this.max_emit_fps,
+        save_enabled: this.save_enabled,
+        save_root: this.save_root,
+        save_section: this.save_section,
+        save_subsection: this.save_subsection,
+        save_format: this.save_enabled ? 'npy' : 'none',
+        include_raw: true,
+        science_neutral: true,
+      })
     },
-    setSpeed(val){
-        this.motorSpdSlider = val;
+    pushParams() {
+      this.$emit('newParams', this.configData())
     },
-    incSpeed(val){
-        this.motorSpdSlider = this.motorSpdSlider+ val;
-    },
-    ensureResol(val){
-        if(val ==false){ return this.resols[0]}
-        else{return val}
-    },
-    pushParams(){
-        var params = this.configData()
-
-        //console.log(params);
-        this.$emit("newParams",params);
-    },
-    pushMotorParams(){
-        var params = {k:"T",v:this.calcSpeed()}
-    
-        //console.log(params);
-        this.$emit("newMotorParams",params);
-    }
   },
-    
-  mounted(){
-    //console.log("created mqtt client")
-  },
-  beforeDestroy(){
-    //this.client.end()
-  }
-  
 }
 </script>
 
-<!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
-h3 {
-  margin: 40px 0 0;
-}
-ul {
-  list-style-type: none;
-  padding: 0;
-}
-li {
-  display: inline-block;
-  margin: 0 10px;
-}
-a {
-  color: #42b983;
+.capture {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0 8px;
 }
 
-input {
-  color: #c7221c;
-  background-color: black;
-  border-color:#c7221c;
+.panel {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  overflow: hidden;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  padding: 10px 12px;
+  text-align: left;
+  color: var(--fg, #c7221c);
 }
 
-.parent {
-    display: grid;
-    grid-template-columns: 1fr  2fr  2fr;
-    grid-template-rows: 1fr 1fr;
-    grid-column-gap: 4px;
-    grid-row-gap: 4px;
-
-    grid-template-areas:
-      "a b c"
-      "e s f";
+.exposure {
+  width: 100%;
 }
 
-.cg { grid-area: c; }
-.bcss { grid-area: b; }
-.ie { grid-area: a; }
-.ss { grid-area: s; }
-.saveopt { grid-area: e; }
-.zoomopt { grid-area: f; }
-.parent > div{
+.slider-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
 
-    background: #0007;
+.slider-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+}
+
+.slider-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.slider-name {
+  color: var(--fg-dim, #8a2a26);
+}
+
+.slider-val {
+  font-family: monospace, sans-serif;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slider-row input[type='range'] {
+  width: 100%;
+  box-sizing: border-box;
+  display: block;
+}
+
+.below {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  width: 100%;
+}
+
+.below > .panel {
+  height: auto;
+  align-self: start;
+}
+
+label {
+  display: block;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--fg, #c7221c);
+}
+
+.sensor > label:first-child,
+.saveopt > label:first-child {
+  margin-top: 0;
+}
+
+input[type='text'],
+input[type='number'],
+select {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-top: 2px;
+}
+
+.hint {
+  font-size: 11px;
+  color: var(--fg-dim, #8a2a26);
+  margin: 4px 0 0;
+}
+
+.shutter-exact {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  min-width: 0;
+}
+
+.shutter-exact input[type='number'] {
+  width: 10rem;
+  flex: 0 0 auto;
+}
+
+.shutter-exact .unit,
+.shutter-exact .hint {
+  margin: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .below {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

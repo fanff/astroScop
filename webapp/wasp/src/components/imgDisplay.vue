@@ -1,65 +1,54 @@
 <template>
-  <div >
-    <img class="viewwin" alt="camimg" v-bind:src="imgsrc()" width=95% v-on:click="imgClicked">
+  <div class="viewwrap">
+    <img
+      class="viewwin"
+      alt="camimg"
+      :src="imgsrc()"
+      @click="imgClicked"
+    />
   </div>
-
 </template>
 
 <script>
-
 export default {
-  components: {
-
-  },
-
   name: 'imgDisplay',
   props: {
-    imgData: String,
-    imgStats: Object,
-    imgProps: Object
-  },
-  data () {
-    return {
-        bvals:[],
-        gvals:[],
-        rvals:[],
-    }
+    imgData: { type: String, default: '' },
+    imgStats: { type: Object, default: () => ({}) },
+    imgProps: { type: Object, default: () => ({}) },
   },
   methods: {
-
-      imgsrc:function(){
-        return 'data:image/jpeg;base64, '+this.imgData;
-      },
-      imgClicked:function(evt){
-
-          var pixx = (evt.pageX-evt.target.offsetLeft)/evt.target.width
-          var pixy = (evt.pageY-evt.target.offsetTop)/evt.target.height
-
-        console.log("clicked, evt",evt,pixx,pixy)
-      }
+    imgsrc() {
+      if (!this.imgData) return ''
+      return 'data:image/jpeg;base64,' + this.imgData
+    },
+    imgClicked(evt) {
+      const pixx =
+        (evt.pageX - evt.target.offsetLeft) / evt.target.width
+      const pixy =
+        (evt.pageY - evt.target.offsetTop) / evt.target.height
+      console.log('clicked', pixx, pixy)
+    },
   },
-  watch:{
-    imgStats:function(newval){
-        //console.log("imgstats ",newval)
-        this.bvals=newval["histData"][0]
-        this.gvals=newval["histData"][1]
-        this.rvals=newval["histData"][2]
-            
-        //this.vals.shift()
-    }
-  },
-  mounted(){
-  },
-  beforeDestroy(){
-  }
-  
 }
 </script>
 
-<!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
-img {
-    border-style:solid;
-    border-color:#a7021c;
+.viewwrap {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+.viewwin {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border: 1px solid #a7021c;
+  background: #000;
 }
 </style>
