@@ -1,0 +1,35 @@
+# Observer home location and visibility windows for starPos.ipynb
+# Save this as: locs.yml
+
+# Home location: [latitude_deg, longitude_deg, elevation_m]
+# - Latitude:  positive = North, negative = South   (range: -90 to +90)
+# - Longitude: positive = East,  negative = West    (typical range: -180 to +180)
+# - Elevation: meters above sea level
+homeloc: [43.6045, 1.4440, 150] # Example: Toulouse, France at ~150 m
+
+# Visibility windows as a list of segments.
+# Each segment is: [alt_min_deg, alt_max_deg, az_min_deg, az_max_deg]
+# A target is visible if:
+#   alt_min_deg <= altitude <= alt_max_deg
+#   and az_min_deg <= azimuth <= az_max_deg
+# Notes:
+# - Altitude (alt) is 0..90 degrees (0 at horizon, 90 at zenith).
+# - Azimuth (az) is 0..360 degrees, measured East of North (Astropy AltAz).
+# - To cover wrap-around near 0°, split into two segments or ensure your environment supports wrap-around.
+azSegments:
+  # Example: allow mid-to-high altitude in the North-East sector
+  - [20, 80, 0, 90] # Alt 20–80 deg, Az 0–90 deg (North→East)
+
+  # Example: allow moderate altitude in the South sector
+  - [15, 60, 150, 210] # Alt 15–60 deg, Az 150–210 deg (SE→SW)
+
+  # Example: allow high altitude in the West sector
+  - [30, 85, 240, 300] # Alt 30–85 deg, Az 240–300 deg (WSW→WNW)
+
+
+  # Example of wrap-around near North (split form, safest):
+  # - [25, 70, 350, 360] # Alt 25–70 deg, Az 350–360 deg (just left of North)
+  # - [25, 70, 0, 10]    # Alt 25–70 deg, Az 0–10 deg (just right of North)
+
+  # If your astropy Longitude.is_within_bounds supports wrap-around, you could do:
+  # - [25, 70, 350, 10]  # Single segment crossing 0° (use with caution)

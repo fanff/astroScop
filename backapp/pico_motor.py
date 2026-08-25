@@ -22,6 +22,10 @@ DIR_INVERT_ASC = False
 DIR_INVERT_DEC = False
 
 
+class PicoNotFoundError(LookupError):
+    """No Raspberry Pi Pico USB CDC device is present."""
+
+
 def find_pico_ports() -> list[str]:
     """Prefer Raspberry Pi Pico USB CDC (vid 2e8a)."""
     ports = []
@@ -31,16 +35,28 @@ def find_pico_ports() -> list[str]:
     return ports
 
 
-def resolve_pico_port(preferred: Optional[str] = None) -> str:
-    """Return preferred port, else first Pico VID match, else platform default."""
+def resolve_pico_port_required(preferred: Optional[str] = None) -> str:
+    """Return preferred port or first Pico VID match; raise if none."""
     if preferred:
         return preferred
     found = find_pico_ports()
     if found:
         return found[0]
-    import sys
+    raise PicoNotFoundError("no Pico USB CDC (vid 2e8a) found")
 
-    return DEFAULT_PORT_WIN if sys.platform.startswith("win") else DEFAULT_PORT_LINUX
+
+def resolve_pico_port(preferred: Optional[str] = None) -> str:
+    """Return preferred port, else first Pico VID match, else platform default.
+
+    Prefer :func:`resolve_pico_port_required` for the motor worker so a missing
+    board does not open a stale ``/dev/ttyACM0`` / ``COM5``.
+    """
+    try:
+        return resolve_pico_port_required(preferred)
+    except PicoNotFoundError:
+        import sys
+
+        return DEFAULT_PORT_WIN if sys.platform.startswith("win") else DEFAULT_PORT_LINUX
 
 
 def speed_to_dir_step_us(

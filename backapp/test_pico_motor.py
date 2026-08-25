@@ -1,8 +1,11 @@
 """Unit tests for pico_motor speed mapping and status parsing (no hardware)."""
 
 from pico_motor import (
+    PicoNotFoundError,
     parse_dual_status,
     parse_status_fields,
+    resolve_pico_port,
+    resolve_pico_port_required,
     speed_to_dir_step_us,
 )
 
@@ -53,3 +56,24 @@ def test_parse_dual_status():
 def test_parse_dual_from_motor_reply():
     axes = parse_dual_status("ok motor=dec en=1 dir=1 step_us=3000")
     assert axes["dec"] == {"en": 1, "dir": 1, "step_us": 3000}
+
+
+def test_resolve_preferred_port():
+    assert resolve_pico_port_required("COM9") == "COM9"
+    assert resolve_pico_port("COM9") == "COM9"
+
+
+def test_resolve_required_raises_without_pico(monkeypatch):
+    monkeypatch.setattr("pico_motor.find_pico_ports", lambda: [])
+    try:
+        resolve_pico_port_required(None)
+        assert False, "expected PicoNotFoundError"
+    except PicoNotFoundError as e:
+        assert "2e8a" in str(e).lower() or "pico" in str(e).lower()
+
+
+def test_resolve_fallback_still_returns_default(monkeypatch):
+    monkeypatch.setattr("pico_motor.find_pico_ports", lambda: [])
+    port = resolve_pico_port(None)
+    assert port in ("COM5", "/dev/ttyACM0")
+

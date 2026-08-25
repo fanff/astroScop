@@ -148,7 +148,7 @@ export default {
           while (this.motorStats.length >= STATS_CAP) {
             this.motorStats.shift()
           }
-          this.motorStats.push(raw)
+          this.motorStats.push({ ...raw, _rxAt: Date.now() })
           break
         case INBOUND_TYPES.camTiming:
           while (this.camStats.length >= STATS_CAP) {

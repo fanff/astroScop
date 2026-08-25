@@ -13,8 +13,16 @@ class Jobstate():
     def is_connected(self):
         return self.sc is not None
     async def send_msg(self,msgType,data):
-        if self.is_connected():
+        if not self.is_connected():
+            return
+        try:
             await self.sc.send(makeMessage(msgType, data, jdump=True))
+        except Exception:
+            # Don't let a dead hub socket kill the caller's task (e.g. telemetry).
+            logging.getLogger("jobutils").warning(
+                "send_msg %s failed; clearing socket", msgType, exc_info=True
+            )
+            self.sc = None
 
 
 def makeMessage(msgtype,data,jdump=False):
