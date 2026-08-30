@@ -12,7 +12,7 @@ power and motor wiring.
 - **Strap loops** — three C-shaped loops on each long wall, with ramps from the wall so they print without hanging
 - **End-wall vents** — vertical slots through the short wall opposite the power adaptor
 - **Screw posts** — corner posts intended to be tapped for the cover screws
-- **Cover** — separate printable plate with clearance holes, a locating lip, and radial airflow slots
+- **Cover** — separate printable plate with clearance holes, a locating lip with gaps at the motor and USB wire exits, and radial airflow slots
 
 Box dimensions live in `motor_board_box.scad`. Adaptor shape dimensions live
 only in `barrel_adapter.scad`.

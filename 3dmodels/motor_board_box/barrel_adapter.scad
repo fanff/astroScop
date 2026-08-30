@@ -7,7 +7,7 @@
 adapter_show_sections = true;
 
 /* [Barrel — outside] */
-adapter_barrel_diameter = 10.0;
+adapter_barrel_diameter = 13.0;
 adapter_barrel_length = 9.0;
 
 /* [Truncated pyramid — body] */

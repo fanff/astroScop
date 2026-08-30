@@ -24,7 +24,7 @@ xminus_vents_enable = true;
 /* [Board and clearances] */
 board_length = 70.0;
 board_width = 50.0;
-board_thickness = 1.5;
+board_thickness = 1.6;
 clearance_below_board = 10.0;
 clearance_above_board = 27.0;
 board_end_margin_x_minus = 10.0;
@@ -49,6 +49,7 @@ cover_thickness = 2.4;
 cover_lip_depth = 3.0;
 cover_lip_thickness = 1.2;
 cover_fit_clearance = 0.25;
+cover_lip_wire_clearance = 0.6;
 
 /* [Cover airflow rays] */
 cover_vent_count = 12;
@@ -61,7 +62,7 @@ m3_clearance_diameter = 3.4;
 m3_tap_diameter = 2.5;
 screw_post_diameter = 7.0;
 screw_post_edge_offset = screw_post_diameter / 2;
-screw_tap_depth = 9.0;
+screw_tap_depth = 20.0;
 
 /* [Flat wire notches] */
 flat_notch_width = 6.0;
@@ -663,7 +664,40 @@ module cover_lip() {
                     h = cover_lip_depth + 2 * epsilon,
                     d = screw_post_diameter + 2 * cover_fit_clearance
                 );
+
+        // Assembly flips the cover, so this near-Y lip sits on the notched Y+ wall.
+        cover_lip_wire_cutters(lip_y);
     }
+}
+
+module cover_lip_wire_gap(center_x, gap_width, lip_y) {
+    translate([
+        center_x - gap_width / 2,
+        lip_y - epsilon,
+        cover_thickness - epsilon
+    ])
+        cube([
+            gap_width,
+            cover_lip_thickness + 2 * epsilon,
+            cover_lip_depth + 2 * epsilon
+        ]);
+}
+
+module cover_lip_wire_cutters(lip_y) {
+    if (flat_wire_notches_enable)
+        for (position = flat_notch_board_fractions)
+            cover_lip_wire_gap(
+                board_x + board_length * position,
+                flat_notch_width + 2 * cover_lip_wire_clearance,
+                lip_y
+            );
+
+    if (usb_notch_enable)
+        cover_lip_wire_gap(
+            box_length - wall_thickness - usb_notch_from_x_plus,
+            usb_notch_diameter + 2 * cover_lip_wire_clearance,
+            lip_y
+        );
 }
 
 module cover_vent_cutters() {
