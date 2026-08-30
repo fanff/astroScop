@@ -121,6 +121,18 @@ astroscop-camera.service  →  backapp/.venv/bin/python …/cam_picamera2.py
 
 If that service is running, ad-hoc `Picamera2()` / suite scripts will fail. Stop/disable before manual tests.
 
+### Zero-fps / Unicam hang recovery
+
+Libcamera can log `Camera started` then fail to queue Unicam buffers (`Failed to queue buffer … Invalid argument`). `capture_request()` then **hangs** with no exception, so the process looks healthy while `capture_fps` stays 0.
+
+The worker:
+
+1. Waits a short boot grace, then probes a first frame with a shutter-based timeout.
+2. Soft open/stream errors → close, exponential backoff, reopen (up to 5 times).
+3. A **hung** capture (timeout) → log and **`sys.exit(1)`** so `Restart=always` does a clean process restart (in-process retry cannot unblock a stuck capture thread).
+
+Do not expect in-process recovery after a hung `capture_request`.
+
 ---
 
 ## Science capture notes
@@ -221,6 +233,7 @@ sudo systemctl enable --now astroscop-camera.service
 |------|------|
 | [`camera-settings-contract.md`](camera-settings-contract.md) | **Contract for rootserver + UI agents** |
 | [`cam_picamera2.py`](../cam_picamera2.py) | HQ worker |
+| [`cam_stream_recovery.py`](../cam_stream_recovery.py) | Zero-fps / hang recovery helpers |
 | [`cam_settings.py`](../cam_settings.py) | Enforced settings model |
 | [`cam_spectrum.py`](../cam_spectrum.py) | Display spectrum |
 | [`rootserver.py`](../rootserver.py) | WS hub (params relay / image broadcast) |

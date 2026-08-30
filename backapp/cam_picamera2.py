@@ -17,6 +17,7 @@ import concurrent
 import datetime
 import json
 import logging
+import sys
 import time
 
 import numpy as np
@@ -35,11 +36,24 @@ from cam_settings import (
 )
 from cam_spectrum import compute_rgb_spectrum
 from cam_storage import ScienceStorageClient
+from cam_stream_recovery import (
+    STREAM_BOOT_GRACE_S,
+    STREAM_MAX_SOFT_FAILURES,
+    CameraStreamError,
+    CameraStreamHangError,
+    capture_timeout_s,
+    should_exit_after_failures,
+    stream_retry_backoff_s,
+)
 from cam_timing_rates import CaptureClock, compute_timing_rates
 
 continue_loop = True
 pending_settings = None  # CameraSettings | None — queued from WS
 current_settings = None  # CameraSettings | None — live on the camera
+
+# Unicam can "start" then never deliver frames (capture_request hangs). Soft
+# failures reopen in-process; hangs exit so systemd Restart=always recovers.
+# Constants / helpers: cam_stream_recovery.py
 
 # Preview handoff only (depth 1). Science Bayer never goes through this buffer.
 PREVIEW_BUFF = MsgBuff(1)
@@ -306,6 +320,15 @@ def decode_raw_u16(raw8, picam2=None, stream="raw"):
         "max": int(u16.max()) if u16.size else None,
     }
     return u16, info
+
+
+async def capture_with_timeout(fn, *args, timeout_s):
+    """Run a blocking capture in ``_CAPTURE_POOL`` with an asyncio timeout."""
+    loop = asyncio.get_running_loop()
+    return await asyncio.wait_for(
+        loop.run_in_executor(_CAPTURE_POOL, fn, *args),
+        timeout=timeout_s,
+    )
 
 
 def capture_rgb_frame(picam2, stream="main"):
@@ -959,8 +982,68 @@ async def open_camera(settings):
     if mode is not None:
         log.info("using sensor mode size %s", mode["size"])
     want_raw = bool(settings.include_raw)
+
+    async def capture_one(timeout_s):
+        """One timed capture; hang → CameraStreamHangError (do not reuse pool)."""
+        nonlocal want_raw
+        if want_raw:
+            try:
+                return await capture_with_timeout(
+                    capture_bayer_rgb_with_metadata,
+                    picam2,
+                    timeout_s=timeout_s,
+                )
+            except asyncio.TimeoutError as e:
+                raise CameraStreamHangError(
+                    f"bayer+rgb capture hung after {timeout_s:.1f}s"
+                ) from e
+            except Exception:
+                log.exception("bayer+rgb capture failed; falling back to RGB-only")
+                try:
+                    rgb, md = await capture_with_timeout(
+                        capture_rgb_with_metadata,
+                        picam2,
+                        timeout_s=timeout_s,
+                    )
+                except asyncio.TimeoutError as e:
+                    raise CameraStreamHangError(
+                        f"rgb capture hung after {timeout_s:.1f}s"
+                    ) from e
+                return None, None, rgb, md
+        try:
+            rgb, md = await capture_with_timeout(
+                capture_rgb_with_metadata,
+                picam2,
+                timeout_s=timeout_s,
+            )
+        except asyncio.TimeoutError as e:
+            raise CameraStreamHangError(
+                f"rgb capture hung after {timeout_s:.1f}s"
+            ) from e
+        return None, None, rgb, md
+
+    def emit_frame(bayer_u16, raw_info, rgb, md):
+        used = used_params_from_settings(
+            picam2, current_settings, rgb.shape, metadata=md
+        )
+        CAPTURE_CLOCK.note_capture(time.monotonic())
+        if bayer_u16 is not None:
+            publish_science_frame(bayer_u16, raw_info, used, current_settings)
+        PREVIEW_BUFF.stack((rgb, used, used["triggerDate"]))
+
     try:
         await asyncio.sleep(0.05)
+
+        timeout_s = capture_timeout_s(current_settings.shutter_us)
+        log.info("probing first frame timeout_s=%.1f", timeout_s)
+        try:
+            bayer_u16, raw_info, rgb, md = await capture_one(timeout_s)
+        except CameraStreamHangError:
+            raise
+        except Exception as e:
+            raise CameraStreamError(f"first-frame probe failed: {e}") from e
+        emit_frame(bayer_u16, raw_info, rgb, md)
+        log.info("first frame ok")
 
         while continue_loop:
             if pending_settings is not None:
@@ -979,33 +1062,9 @@ async def open_camera(settings):
                     sync_science_storage(current_settings)
                     want_raw = bool(current_settings.include_raw)
 
-            loop = asyncio.get_running_loop()
-            bayer_u16 = None
-            raw_info = None
-            if want_raw:
-                try:
-                    bayer_u16, raw_info, rgb, md = await loop.run_in_executor(
-                        _CAPTURE_POOL, capture_bayer_rgb_with_metadata, picam2
-                    )
-                except Exception:
-                    log.exception("bayer+rgb capture failed; falling back to RGB-only")
-                    rgb, md = await loop.run_in_executor(
-                        _CAPTURE_POOL, capture_rgb_with_metadata, picam2
-                    )
-                    bayer_u16 = None
-                    raw_info = None
-            else:
-                rgb, md = await loop.run_in_executor(
-                    _CAPTURE_POOL, capture_rgb_with_metadata, picam2
-                )
-
-            used = used_params_from_settings(
-                picam2, current_settings, rgb.shape, metadata=md
-            )
-            CAPTURE_CLOCK.note_capture(time.monotonic())
-            if bayer_u16 is not None:
-                publish_science_frame(bayer_u16, raw_info, used, current_settings)
-            PREVIEW_BUFF.stack((rgb, used, used["triggerDate"]))
+            timeout_s = capture_timeout_s(current_settings.shutter_us)
+            bayer_u16, raw_info, rgb, md = await capture_one(timeout_s)
+            emit_frame(bayer_u16, raw_info, rgb, md)
             await asyncio.sleep(0)
     finally:
         close_camera(picam2)
@@ -1019,8 +1078,9 @@ async def camera_loop():
     global continue_loop
     global pending_settings
     global current_settings
-    await asyncio.sleep(1)
+    await asyncio.sleep(STREAM_BOOT_GRACE_S)
     log = logging.getLogger("cameraLoop")
+    consecutive_failures = 0
 
     while True:
         try:
@@ -1034,10 +1094,26 @@ async def camera_loop():
             continue_loop = True
             current_settings = settings
             await open_camera(settings)
+            consecutive_failures = 0
             log.info("camera closed")
+        except CameraStreamHangError:
+            log.exception(
+                "Unicam/capture hung; exiting for systemd restart"
+            )
+            sys.exit(1)
         except Exception:
-            log.exception("whooops")
-            await asyncio.sleep(1)
+            consecutive_failures += 1
+            log.exception(
+                "whooops failure=%s/%s",
+                consecutive_failures,
+                STREAM_MAX_SOFT_FAILURES,
+            )
+            if should_exit_after_failures(consecutive_failures):
+                log.error(
+                    "too many consecutive stream failures; exiting for systemd restart"
+                )
+                sys.exit(1)
+            await asyncio.sleep(stream_retry_backoff_s(consecutive_failures))
 
 
 cameraLoop = camera_loop
