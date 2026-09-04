@@ -166,7 +166,7 @@ Two independent PI-D (or PI) controllers after the rotation + step normalization
 | I | eat constant rate error: “sidereal is 0.3 STEP/s slow”, “polar error wants +0.05 STEP/s DEC” |
 | D | optional, heavily low-pass; start at 0. Seeing will look like D-noise. |
 
-Start **PI-only**. Add D only if a slow overshoot remains after I is modest.
+Start **PI-only**. Do not ship a D term on night one. See §5.3–5.4.
 
 ### 5.2 Suggested starting limits (to be confirmed on sky)
 
@@ -184,10 +184,44 @@ These are *order-of-magnitude* so the first night cannot run away. Not final tun
 
 Derivative on a 3-sample EMA of the centroid, never on raw pixels.
 
-### 5.3 What the PID is *not*
+### 5.3 Why PI, and why no D
+
+The plant is already an integrator: we command **rate**, the star’s **position** is `∫ rate_error dt`. For that shape:
+
+| Term | Fits this mount? |
+|------|------------------|
+| **P on position** | Yes. Offset decays. This is the main stabilizer. |
+| **I on position** | Yes. Eats the biases we actually have (sidereal a bit wrong, polar-alignment DEC drift, a slow gear mean). |
+| **D on position** | Not for v1. At 2–5 Hz, `d(centroid)/dt` is mostly **seeing**. Differentiating that makes the motors chase atmosphere and often tracks *worse* than open-loop sidereal. |
+
+Commanding rate from position already uses the velocity channel. Extra D is “brake when the error is shrinking.” That only helps if the plant is laggy enough to overshoot **and** the velocity is clean. We have some lag (exposure + centroid + Pico’s ~100 ms ramp), but not a heavy current-loop servo.
+
+**Add D later only if** a slow, clean overshoot remains after a 3-frame EMA — and then only on that filtered velocity, never on raw pixels. Prefer the drift-rate estimator in §5.4 before turning on `Kd`.
+
+I is the term that can actually hurt: windup on a lost star or a slew. Clamp I to the trim limits and drop trim when the star disappears. That matters more than D.
+
+The Raspberry Pi is a fine place to run this. A PI (or a 4-state Kalman) is a rounding error next to JPEG encode. The Pi constraint is **who owns the IMX477** and **not guiding from the browser JPEG**, not CPU.
+
+This is the same family as PHD2-style guiders (P / aggression + a slow bias), even when they do not call it PID.
+
+### 5.4 Better methods — what is worth it later
+
+Ranked for *this* mount, not in general:
+
+| Priority | Method | When |
+|----------|--------|------|
+| v1 | **PI + sidereal feedforward + `cos δ` step-normalization** | First closed loop. Matching physics: integrator + constant bias + seeing. |
+| Next, if I is ugly | **Drift-rate estimator, then P only** | Kalman or a slow EMA of centroid velocity. Treat estimated `ω_err` as extra feedforward; P only on leftover position. Same job as I, but the memory is a filtered rate, not an unbounded integral. Do this **before** adding `Kd`. |
+| Cheap robustness | **Hysteresis / min-move** | Do nothing inside the deadband (seeing), then a proportional pulse. Can sit in front of the same PI. |
+| After a working loop | **PEC** | Learn the worm/belt period on ASC. PID cannot memorize repeating PE; it only chases it. |
+| Later SNR | **Multi-star / correlation** | Better measurement, same controller. Not a different philosophy. |
+
+Usually **not** worth it here: MPC, LQR, Smith predictors, adaptive-gain PID tables. The `cos δ` normalization already does the one schedule that is physically real. Plate-solving every frame, or a full PHD2 calibration dance, is also not better for v1 — known camera-vs-axes rotation *is* that calibration.
+
+### 5.5 What the loop is *not*
 
 - Not a position goto. We command **rates**, same as today.
-- Not PEC. Periodic gear error will be reduced, not memorized.
+- Not PEC. Periodic gear error will be reduced, not memorized (until §5.4).
 - Not field-rotation correction. One star cannot de-rotate the frame; polar error will still rotate the field slowly. That is acceptable for v1 (spectro / single-object work).
 
 ---
