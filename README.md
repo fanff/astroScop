@@ -69,6 +69,12 @@ cd postprocessing
 # see postprocessing/README.md
 ```
 
+## Evolution (planning)
+
+| Document | Status |
+|----------|--------|
+| [`docs/evolution-vision-motor-control-loop.md`](docs/evolution-vision-motor-control-loop.md) | Plan: camera-star PID trims on top of sidereal ASC + DEC (polar alignment is close, not perfect) |
+
 ## Dev notes
 
 - [`backapp/`](backapp/) is **uv-managed** (`pyproject.toml` + `uv.lock`). Dev: `cd backapp && uv sync`.
