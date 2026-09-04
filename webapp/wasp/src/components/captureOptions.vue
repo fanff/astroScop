@@ -144,6 +144,108 @@
         <input type="text" v-model="save_subsection" @change="schedulePush" />
       </div>
     </div>
+
+    <div class="panel locator">
+      <label>
+        <input
+          type="checkbox"
+          v-model="locator_enabled"
+          @change="pushParamsNow"
+        />
+        locator (preview overlay)
+      </label>
+      <p class="hint">
+        Marks the telescope pointing on the tracking camera. Position is
+        relative to the full sensor, so capture mode / preview scale do not
+        move it. Crop clamps the mark to the visible edge.
+      </p>
+
+      <div class="slider-row">
+        <div class="slider-meta">
+          <span class="slider-name">locator X</span>
+          <span class="slider-val">{{ locatorXLabel }}</span>
+        </div>
+        <input
+          type="range"
+          v-model.number="locator_x_slider"
+          :min="0"
+          :max="locatorSliderSteps"
+          step="1"
+          :disabled="!locator_enabled"
+          @input="onLocatorXSlider"
+        />
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-meta">
+          <span class="slider-name">locator Y</span>
+          <span class="slider-val">{{ locatorYLabel }}</span>
+        </div>
+        <input
+          type="range"
+          v-model.number="locator_y_slider"
+          :min="0"
+          :max="locatorSliderSteps"
+          step="1"
+          :disabled="!locator_enabled"
+          @input="onLocatorYSlider"
+        />
+      </div>
+
+      <div class="nudge" :class="{ dim: !locator_enabled }">
+        <button
+          type="button"
+          class="nudge-btn"
+          :disabled="!locator_enabled"
+          @click="nudgeLocator(0, -locatorStep)"
+        >
+          up
+        </button>
+        <div class="nudge-mid">
+          <button
+            type="button"
+            class="nudge-btn"
+            :disabled="!locator_enabled"
+            @click="nudgeLocator(-locatorStep, 0)"
+          >
+            left
+          </button>
+          <button
+            type="button"
+            class="nudge-btn"
+            :disabled="!locator_enabled"
+            @click="nudgeLocator(locatorStep, 0)"
+          >
+            right
+          </button>
+        </div>
+        <button
+          type="button"
+          class="nudge-btn"
+          :disabled="!locator_enabled"
+          @click="nudgeLocator(0, locatorStep)"
+        >
+          down
+        </button>
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-meta">
+          <span class="slider-name">locator size</span>
+          <span class="slider-val">{{ locatorSizeLabel }}</span>
+        </div>
+        <input
+          type="range"
+          v-model.number="locator_size"
+          :min="locatorSizeMin"
+          :max="locatorSizeMax"
+          step="0.05"
+          :disabled="!locator_enabled"
+          @input="onLocatorSizeInput"
+        />
+        <p class="hint">Circle radius vs the default mark. Smaller for higher optical zoom.</p>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -166,6 +268,16 @@ import {
   colourGainLogPosToGain,
   captureModeIdFromSettings,
   previewDivFromSettings,
+  clampNorm,
+  locatorToSlider,
+  sliderToLocator,
+  formatLocatorPct,
+  formatLocatorSize,
+  clampLocatorSize,
+  LOCATOR_STEP,
+  LOCATOR_SLIDER_STEPS,
+  LOCATOR_SIZE_MIN,
+  LOCATOR_SIZE_MAX,
 } from '../ws/cameraSettings.js'
 
 const PUSH_DEBOUNCE_MS = 200
@@ -228,6 +340,17 @@ export default {
       save_root: defaults.save_root,
       save_section: defaults.save_section,
       save_subsection: defaults.save_subsection,
+      locator_enabled: defaults.locator_enabled,
+      locator_x: defaults.locator_x,
+      locator_y: defaults.locator_y,
+      locator_x_slider: locatorToSlider(defaults.locator_x),
+      locator_y_slider: locatorToSlider(defaults.locator_y),
+      locator_size: defaults.locator_size,
+      locatorStep: LOCATOR_STEP,
+      locatorSliderSteps: LOCATOR_SLIDER_STEPS,
+      locatorSizeMin: LOCATOR_SIZE_MIN,
+      locatorSizeMax: LOCATOR_SIZE_MAX,
+      scaler_crop: defaults.scaler_crop,
       // Do NOT prefix with _: Vue 3 does not proxy those on `this`.
       hydrated: false,
       appliedEpoch: 0,
@@ -252,6 +375,15 @@ export default {
           ? `RGB ${m.main_width}×${m.main_height}`
           : 'RGB = sensor size'
       return `${m.sensor_preset} · ${main} · reopens camera (brief blackout)`
+    },
+    locatorXLabel() {
+      return formatLocatorPct(this.locator_x)
+    },
+    locatorYLabel() {
+      return formatLocatorPct(this.locator_y)
+    },
+    locatorSizeLabel() {
+      return formatLocatorSize(this.locator_size)
     },
   },
   watch: {
@@ -309,6 +441,32 @@ export default {
       this.save_root = s.save_root
       this.save_section = s.save_section
       this.save_subsection = s.save_subsection
+      this.locator_enabled = s.locator_enabled
+      this.locator_x = s.locator_x
+      this.locator_y = s.locator_y
+      this.locator_x_slider = locatorToSlider(s.locator_x)
+      this.locator_y_slider = locatorToSlider(s.locator_y)
+      this.locator_size = s.locator_size
+      this.scaler_crop = s.scaler_crop
+    },
+    onLocatorSizeInput() {
+      this.locator_size = clampLocatorSize(this.locator_size)
+      this.schedulePush()
+    },
+    onLocatorXSlider() {
+      this.locator_x = sliderToLocator(this.locator_x_slider)
+      this.schedulePush()
+    },
+    onLocatorYSlider() {
+      this.locator_y = sliderToLocator(this.locator_y_slider)
+      this.schedulePush()
+    },
+    nudgeLocator(dx, dy) {
+      this.locator_x = clampNorm(this.locator_x + dx)
+      this.locator_y = clampNorm(this.locator_y + dy)
+      this.locator_x_slider = locatorToSlider(this.locator_x)
+      this.locator_y_slider = locatorToSlider(this.locator_y)
+      this.pushParamsNow()
     },
     onShutterLogInput() {
       this.shutter_us = shutterLogPosToUs(this.shutter_log)
@@ -347,6 +505,11 @@ export default {
         save_format: this.save_enabled ? 'npy' : 'none',
         include_raw: true,
         science_neutral: true,
+        locator_enabled: this.locator_enabled,
+        locator_x: this.locator_x,
+        locator_y: this.locator_y,
+        locator_size: this.locator_size,
+        scaler_crop: this.scaler_crop,
       })
     },
     clearPushTimer() {
@@ -505,6 +668,29 @@ select {
 .shutter-exact .hint {
   margin: 0;
   white-space: nowrap;
+}
+
+.nudge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+}
+
+.nudge.dim {
+  opacity: 0.45;
+}
+
+.nudge-mid {
+  display: flex;
+  gap: 8px;
+}
+
+.nudge-btn {
+  min-width: 4.2em;
+  font-size: 13px;
+  padding: 2px 8px;
 }
 
 @media (max-width: 720px) {

@@ -34,6 +34,7 @@ from cam_settings import (
     from_legacy_dict,
     preview_wh_from_frame,
 )
+from cam_locator import apply_locator_overlay
 from cam_spectrum import compute_rgb_spectrum
 from cam_storage import ScienceStorageClient
 from cam_stream_recovery import (
@@ -379,11 +380,13 @@ def capture_raw_frame(picam2, stream="raw"):
     return decode_raw_u16(raw8, picam2=picam2, stream=stream)
 
 
-def pack_preview_emit(rgb, preview_div):
+def pack_preview_emit(rgb, preview_div, locator=None):
     """
-    Aspect-preserving downsample → spectrum → JPEG (worker thread only).
+    Aspect-preserving downsample → spectrum → optional locator → JPEG.
 
-    ``preview_div`` is 1|2|4|8 relative to capture RGB shape.
+    Spectrum is computed on the clean resized RGB. The locator is burned
+    into the JPEG only (Bayer science is never touched).
+    ``locator`` is optional ``{enabled, x, y, scaler_crop}``.
     Returns (jpeg_b64, spectrum_dict_or_None).
     """
     h, w = int(rgb.shape[0]), int(rgb.shape[1])
@@ -399,6 +402,10 @@ def pack_preview_emit(rgb, preview_div):
         spectrum = compute_rgb_spectrum(disp_arr).model_dump()
     except Exception:
         logging.getLogger("packPreview").exception("spectrum failed")
+    try:
+        image_display = apply_locator_overlay(image_display, locator)
+    except Exception:
+        logging.getLogger("packPreview").exception("locator draw failed")
     data = imgutils.pilimTobase64Jpg(image_display)
     return data, spectrum
 
@@ -1206,11 +1213,23 @@ async def bg_job():
                     if server_connection:
                         try:
                             preview_div = 2
+                            locator = None
                             if current_settings is not None:
                                 preview_div = int(current_settings.preview_div)
+                                locator = {
+                                    "enabled": bool(current_settings.locator_enabled),
+                                    "x": float(current_settings.locator_x),
+                                    "y": float(current_settings.locator_y),
+                                    "size": float(current_settings.locator_size),
+                                    "scaler_crop": params.get("ScalerCrop"),
+                                }
                             loop = asyncio.get_running_loop()
                             data, spectrum = await loop.run_in_executor(
-                                _EMIT_POOL, pack_preview_emit, a, preview_div
+                                _EMIT_POOL,
+                                pack_preview_emit,
+                                a,
+                                preview_div,
+                                locator,
                             )
                             msg = {
                                 "usedParams": params,

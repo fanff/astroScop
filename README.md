@@ -26,7 +26,8 @@ UI (wasp) ──WebSocket──► rootserver :8765
 
 ## Pi services
 
-Installed via [`backapp/deploy/install_on_pi.sh`](backapp/deploy/install_on_pi.sh):
+Installed via [`backapp/deploy/install_on_pi.sh`](backapp/deploy/install_on_pi.sh)
+(after syncing code with [`backapp/deploy/deploy.ps1`](backapp/deploy/deploy.ps1) / [`backapp/deploy/deploy.sh`](backapp/deploy/deploy.sh)):
 
 | systemd unit | Process |
 |--------------|---------|
@@ -58,7 +59,21 @@ npm run serve    # dev
 npm run build    # production
 ```
 
-Deploy helper: [`webapp/wasp/buildandpush.sh`](webapp/wasp/buildandpush.sh).
+Pi deploy (compiled static files on **port 80**, hub still `ws://<host>:8765`).
+SSH host defaults to `piscope`; set `ASTROSCOP_PI_HOST` for another Pi (e.g. `piscope2`).
+
+```bash
+# Windows — backend then UI
+$env:ASTROSCOP_PI_HOST = "piscope2"
+powershell -File backapp/deploy/deploy.ps1
+cd webapp/wasp; npm run deploy:pi
+
+# bash
+ASTROSCOP_PI_HOST=piscope2 ./backapp/deploy/deploy.sh
+ASTROSCOP_PI_HOST=piscope2 ./webapp/wasp/deploy/deploy.sh
+```
+
+See [`webapp/wasp/README.md`](webapp/wasp/README.md).
 
 ## Post-processing
 

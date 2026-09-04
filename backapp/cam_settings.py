@@ -50,6 +50,10 @@ OUTPUT_FIELDS = frozenset(
         "save_enabled",
         "save_root",
         "max_emit_fps",
+        "locator_enabled",
+        "locator_x",
+        "locator_y",
+        "locator_size",
     }
 )
 
@@ -106,6 +110,11 @@ class CameraSettings(BaseModel):
     save_enabled: bool = False
     save_root: str = "./savedimgs"
     max_emit_fps: float = Field(default=8.0, gt=0.0, le=60.0)
+    # Preview-only tracking mark. X/Y are full IMX477 sensor fractions (0–1).
+    locator_enabled: bool = False
+    locator_x: float = Field(default=0.5, ge=0.0, le=1.0)
+    locator_y: float = Field(default=0.5, ge=0.0, le=1.0)
+    locator_size: float = Field(default=1.0, ge=0.15, le=3.0)
 
     def science_save_active(self) -> bool:
         """Runtime switch: arm Bayer persistence (not RGB/JPEG)."""
@@ -189,6 +198,10 @@ class CameraSettings(BaseModel):
             "scaler_crop": self.scaler_crop,
             "science_neutral": self.science_neutral,
             "max_emit_fps": self.max_emit_fps,
+            "locator_enabled": self.locator_enabled,
+            "locator_x": self.locator_x,
+            "locator_y": self.locator_y,
+            "locator_size": self.locator_size,
         }
 
 
@@ -321,6 +334,14 @@ def from_legacy_dict(
         kwargs["save_enabled"] = False
     if "max_emit_fps" in raw:
         kwargs["max_emit_fps"] = float(raw["max_emit_fps"])
+    if "locator_enabled" in raw:
+        kwargs["locator_enabled"] = bool(raw["locator_enabled"])
+    if "locator_x" in raw:
+        kwargs["locator_x"] = float(raw["locator_x"])
+    if "locator_y" in raw:
+        kwargs["locator_y"] = float(raw["locator_y"])
+    if "locator_size" in raw:
+        kwargs["locator_size"] = float(raw["locator_size"])
 
     return CameraSettings(**kwargs)
 

@@ -226,6 +226,10 @@ export function defaultCameraSettings() {
     save_enabled: false,
     save_root: './savedimgs',
     max_emit_fps: 8.0,
+    locator_enabled: false,
+    locator_x: 0.5,
+    locator_y: 0.5,
+    locator_size: 1.0,
   }
 }
 
@@ -276,6 +280,10 @@ export function toWireSettings(partial = {}) {
   out.save_enabled = Boolean(out.save_enabled)
   out.save_root = String(out.save_root || './savedimgs')
   out.max_emit_fps = clamp(Number(out.max_emit_fps) || 8, 0.001, 60)
+  out.locator_enabled = Boolean(out.locator_enabled)
+  out.locator_x = clampNorm(out.locator_x)
+  out.locator_y = clampNorm(out.locator_y)
+  out.locator_size = clampLocatorSize(out.locator_size)
 
   // Drop legacy absolute display size if a partial still carries it.
   delete out.display_width
@@ -300,4 +308,41 @@ export function toWireSettings(partial = {}) {
 
 function clamp(v, lo, hi) {
   return Math.min(hi, Math.max(lo, v))
+}
+
+/** Full-sensor normalized locator coordinate in [0, 1]. */
+export function clampNorm(v, fallback = 0.5) {
+  const n = Number(v)
+  if (!Number.isFinite(n)) return fallback
+  return clamp(n, 0, 1)
+}
+
+export const LOCATOR_STEP = 0.01
+export const LOCATOR_SLIDER_STEPS = 1000
+
+export function locatorToSlider(v) {
+  return Math.round(clampNorm(v) * LOCATOR_SLIDER_STEPS)
+}
+
+export function sliderToLocator(pos) {
+  const t = Math.min(LOCATOR_SLIDER_STEPS, Math.max(0, Number(pos) || 0))
+  return t / LOCATOR_SLIDER_STEPS
+}
+
+export function formatLocatorPct(v) {
+  return `${(clampNorm(v) * 100).toFixed(1)}%`
+}
+
+export const LOCATOR_SIZE_MIN = 0.15
+export const LOCATOR_SIZE_MAX = 3.0
+export const LOCATOR_SIZE_DEFAULT = 1.0
+
+export function clampLocatorSize(v) {
+  const n = Number(v)
+  if (!Number.isFinite(n)) return LOCATOR_SIZE_DEFAULT
+  return clamp(n, LOCATOR_SIZE_MIN, LOCATOR_SIZE_MAX)
+}
+
+export function formatLocatorSize(v) {
+  return `×${clampLocatorSize(v).toFixed(2)}`
 }

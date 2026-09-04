@@ -208,6 +208,24 @@ async def test_params_canonical_and_legacy(port: int):
         assert last["data"]["analog_gain"] == 3.0
         assert last["data"]["max_emit_fps"] == 5.0
 
+        await ui.send(
+            json.dumps(
+                {
+                    "msgtype": "params",
+                    "data": {
+                        "locator_enabled": True,
+                        "locator_x": 0.25,
+                        "locator_y": 0.75,
+                    },
+                }
+            )
+        )
+        await asyncio.sleep(0.1)
+        last = cam_msgs[-1]
+        assert last["data"]["locator_enabled"] is True
+        assert abs(float(last["data"]["locator_x"]) - 0.25) < 1e-9
+        assert abs(float(last["data"]["locator_y"]) - 0.75) < 1e-9
+
         # Invalid — not forwarded
         n = len(cam_msgs)
         await ui.send(json.dumps({"msgtype": "params", "data": {"analog_gain": -5}}))

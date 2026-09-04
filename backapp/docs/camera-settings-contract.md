@@ -142,6 +142,10 @@ Preferred `params.data` shape. Extra keys are **ignored** (`extra="ignore"`). Ty
 | `save_section` | string | `"test"` | **output** | |
 | `save_subsection` | string | `""` | **output** | |
 | `max_emit_fps` | float (0, 60] | `8.0` | **output** | Preview emit cap |
+| `locator_enabled` | bool | `false` | **output** | Burn tracking mark into preview JPEG only |
+| `locator_x` | float 0…1 | `0.5` | **output** | Full IMX477 sensor X (0 = left) |
+| `locator_y` | float 0…1 | `0.5` | **output** | Full IMX477 sensor Y (0 = top) |
+| `locator_size` | float 0.15…3.0 | `1.0` | **output** | Circle radius scale vs the default mark |
 
 ### Apply classes (what rootserver/UI should expect latency-wise)
 
@@ -149,7 +153,7 @@ Preferred `params.data` shape. Extra keys are **ignored** (`extra="ignore"`). Ty
 |-------|--------|------------------|
 | **Slow** | `sensor_preset`, `main_*`, `include_raw` | stop → configure → start (brief blackout) |
 | **Fast** | `shutter_us`, `analog_gain`, `colour_gain_*`, `scaler_crop`, `science_neutral` | single `set_controls` (streaming) |
-| **Output** | `preview_div`, `save_*`, `max_emit_fps` | no sensor reconfig |
+| **Output** | `preview_div`, `save_*`, `max_emit_fps`, `locator_*` | no sensor reconfig |
 
 Classification is implemented by `diff_settings()` in [`cam_settings.py`](../cam_settings.py). Changing a slow field forces a full reopen of the capture loop.
 
@@ -171,7 +175,11 @@ Classification is implemented by `diff_settings()` in [`cam_settings.py`](../cam
     "save_enabled": false,
     "save_root": "./savedimgs",
     "save_format": "none",
-    "max_emit_fps": 8.0
+    "max_emit_fps": 8.0,
+    "locator_enabled": false,
+    "locator_x": 0.5,
+    "locator_y": 0.5,
+    "locator_size": 1.0
   }
 }
 ```
@@ -223,6 +231,8 @@ Ignored / unused for science path (may appear in old blobs): `expomode`, `bright
 **Not supported as sensor modes:** full-FOV 3×3 or 4×4 binning. Do not add UI options that claim otherwise.
 
 **ScalerCrop vs mode:** `scaler_crop` shrinks the **RGB** FOV; Bayer raw stays full sensor on this stack. For less data / faster raw, change `sensor_preset`, not crop alone. See [`hq-camera-capability-report.md`](hq-camera-capability-report.md).
+
+**Locator:** `locator_x` / `locator_y` are fractions of the physical IMX477 (`4056×3040`), not of the current JPEG. The worker maps that point through the frame’s `ScalerCrop` into the emitted preview, then clamps the full circle+ticks inside the image if the crop excludes the point. Changing `sensor_preset`, `main_*`, or `preview_div` must not move the mark on the sky. `locator_size` scales the circle (and ticks) vs the default radius so the mark can match optical zoom; stroke stays thin. The locator is burned into the **preview JPEG only**; Bayer science files are unchanged. Helpers live in [`cam_locator.py`](../cam_locator.py).
 
 **Bit depth:** max **12-bit** ADC. `uint16` buffers are containers only.
 
@@ -298,6 +308,7 @@ Expose controls that match the canonical fields. Suggested UX:
 | ROI (optional) | `scaler_crop` | Or “center crop %” helper that sends `[x,y,w,h]` |
 | Preview scale | `preview_div` | `1`/`2`/`4`/`8` — aspect-preserving JPEG downsample; UI paints with `object-fit: contain` |
 | Preview FPS cap | `max_emit_fps` | Default 8 |
+| Locator | `locator_enabled` + `locator_x` / `locator_y` + `locator_size` | Preview JPEG overlay; X/Y are full-sensor fractions; size scales the circle; crop clamps to the visible edge |
 | Save arm | `save_enabled` | Runtime on/off; Bayer `.npy` only (separate storage process) |
 | Save path | `save_root` + section | Runtime destination; no sensor reconfig |
 
@@ -324,6 +335,7 @@ Camera-free storage / handoff tests:
 
 ```powershell
 python backapp/test_cam_storage.py
+python backapp/test_cam_locator.py
 ```
 
 Hardware capability evidence: [`hq-camera-capability-report.md`](hq-camera-capability-report.md).

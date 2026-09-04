@@ -72,14 +72,33 @@ import {
 const STATS_CAP = 100
 const WSIP_STORAGE_KEY = 'astroscop.wsip'
 
+function pageHostname() {
+  if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+    return window.location.hostname
+  }
+  return 'localhost'
+}
+
 function loadStoredWsip() {
+  const pageHost = pageHostname()
   try {
     const stored = localStorage.getItem(WSIP_STORAGE_KEY)
-    if (stored && stored.trim()) return stored.trim()
+    if (stored && stored.trim()) {
+      const value = stored.trim()
+      // Stale "localhost" from a laptop session must not stick when the UI is served from the Pi.
+      if (
+        value === 'localhost' &&
+        pageHost !== 'localhost' &&
+        pageHost !== '127.0.0.1'
+      ) {
+        return pageHost
+      }
+      return value
+    }
   } catch {
     /* ignore */
   }
-  return 'localhost'
+  return pageHost
 }
 
 export default {

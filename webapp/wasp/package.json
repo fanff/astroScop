@@ -7,6 +7,8 @@
     "dev": "vite",
     "serve": "vite",
     "build": "vite build",
+    "package:pi": "powershell -ExecutionPolicy Bypass -File deploy/package.ps1",
+    "deploy:pi": "powershell -ExecutionPolicy Bypass -File deploy/deploy.ps1",
     "preview": "vite preview",
     "lint": "eslint . --ext .vue,.js"
   },
