@@ -8,6 +8,7 @@ Docs for the Raspberry Pi HQ (IMX477) camera path used by agents and operators.
 | [`pi-hq-camera.md`](pi-hq-camera.md) | Hardware, sensor modes, science notes, safe live testing on `piscope` |
 | [`hq-camera-capability-report.md`](hq-camera-capability-report.md) | Verified capability suite results (modes, exposure trust, ScalerCrop behaviour) |
 | [`cam-settings-bench-report.md`](cam-settings-bench-report.md) | Latest typed-settings / spectrum / reconfig bench (must stay PASS) |
+| [`../../docs/evolution-vision-motor-control-loop.md`](../../docs/evolution-vision-motor-control-loop.md) | **Plan (not implemented)** — autoguide PID from HQ star drift → ASC/DEC rate trims |
 
 ## Code back-links
 
