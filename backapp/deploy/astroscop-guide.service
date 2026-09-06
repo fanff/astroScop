@@ -1,0 +1,17 @@
+[Unit]
+Description=astroScop guide worker (star isolate + PI trims)
+After=network.target astroscop-rootserver.service
+Wants=astroscop-rootserver.service
+
+[Service]
+Type=simple
+User=fanf
+Group=fanf
+WorkingDirectory=/home/fanf/astroScop/backapp
+ExecStart=/home/fanf/astroScop/backapp/.venv/bin/python /home/fanf/astroScop/backapp/guideControl.py --feed shm --emit-trims
+Restart=always
+RestartSec=3
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

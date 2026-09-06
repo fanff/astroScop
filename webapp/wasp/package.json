@@ -10,7 +10,10 @@
     "package:pi": "powershell -ExecutionPolicy Bypass -File deploy/package.ps1",
     "deploy:pi": "powershell -ExecutionPolicy Bypass -File deploy/deploy.ps1",
     "preview": "vite preview",
-    "lint": "eslint . --ext .vue,.js"
+    "lint": "eslint . --ext .vue,.js",
+    "test:overlay": "node --test src/ws/trackOverlay.test.js",
+    "test:guide": "node --test src/ws/guideEnable.test.js",
+    "test": "node --test src/ws/*.test.js"
   },
   "dependencies": {
     "vue": "^3.5.13"

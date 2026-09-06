@@ -22,6 +22,24 @@ from asc_rates import (
     ASC_STEPS_PER_DEGREE,
     sidereal_speed_cmd,
 )
+from guide_mixer import RateMixer, needs_write
+from ws_messages import (
+    CTL_ASC,
+    CTL_ASC_CURR,
+    CTL_ASC_RESET,
+    CTL_ASC_SIDEREAL,
+    CTL_ASC_ZERO,
+    CTL_DEC,
+    CTL_DEC_CURR,
+    CTL_DEC_RESET,
+    CTL_DEC_ZERO,
+    CTL_GUIDE_DASC,
+    CTL_GUIDE_DDEC,
+    CTL_GUIDE_DISABLE,
+    CTL_GUIDE_ENABLE,
+    CTL_MOTOR_ARM,
+    CTL_MOTOR_DISARM,
+)
 
 # Open-loop degrees from empirical sidereal lock (see asc_rates.py).
 DEFAULT_STEP_BY_DEGREE = ASC_STEPS_PER_DEGREE
@@ -98,10 +116,13 @@ class MountTracker:
 # Shared across WS + serial loops
 pico: Optional[PicoMotorClient] = None
 tracker = MountTracker()
+mixer = RateMixer()
 ui_armed = False
 link_error: Optional[str] = None
 force_rescan: Optional[asyncio.Event] = None
 serial_lock: Optional[asyncio.Lock] = None
+_last_sent_asc: Optional[float] = None
+_last_sent_dec: Optional[float] = None
 
 
 def _request_rescan() -> None:
@@ -129,6 +150,7 @@ def motor_info_payload(*, link: Optional[str] = None) -> dict:
             "armed": ui_armed,
         }
     )
+    snap.update(mixer.snapshot())
     return snap
 
 
@@ -162,9 +184,12 @@ def _open_pico_client(resolved: str) -> PicoMotorClient:
 
 
 async def _close_pico() -> None:
-    global pico, link_error
+    global pico, link_error, _last_sent_asc, _last_sent_dec
     client = pico
     pico = None
+    _last_sent_asc = None
+    _last_sent_dec = None
+    mixer.clear_trims()
     if client is None:
         return
     try:
@@ -175,8 +200,42 @@ async def _close_pico() -> None:
     log.info("Pico serial closed")
 
 
+async def _apply_mixed_speeds(state: Jobstate, log_h) -> bool:
+    """Write commanded = ff + trim to Pico for axes that changed. False on serial fail."""
+    global link_error, _last_sent_asc, _last_sent_dec
+    if pico is None:
+        log_h.warning("speed apply ignored — Pico not open")
+        await emit_motor_info(state)
+        return False
+
+    cmd_asc = mixer.commanded_asc()
+    cmd_dec = mixer.commanded_dec()
+    try:
+        if needs_write(_last_sent_asc, cmd_asc):
+            reply = await _serial_call(pico.set_speed_asc, cmd_asc)
+            tracker.asc.set_command(pico.last_dir, pico.last_step_us, pico.enabled)
+            _last_sent_asc = cmd_asc
+            log_h.info("ASC commanded=%s: %s", cmd_asc, reply)
+        if needs_write(_last_sent_dec, cmd_dec):
+            reply = await _serial_call(pico.set_speed_dec, cmd_dec)
+            tracker.dec.set_command(
+                pico.last_dec_dir, pico.last_dec_step_us, pico.dec_enabled
+            )
+            _last_sent_dec = cmd_dec
+            log_h.info("DEC commanded=%s: %s", cmd_dec, reply)
+    except Exception as e:
+        link_error = str(e)
+        log_h.warning("speed apply serial error: %s", e)
+        await _close_pico()
+        _request_rescan()
+        await emit_motor_info(state, link="error")
+        return False
+    await emit_motor_info(state, link="connected")
+    return True
+
+
 async def handle_ctlparams(msg_type: str, msg: dict, state: Jobstate) -> None:
-    global pico, ui_armed, link_error
+    global pico, ui_armed, link_error, _last_sent_asc, _last_sent_dec
     log_h = logging.getLogger("handle_ctlparams")
 
     if msg_type != "ctlparams":
@@ -186,7 +245,7 @@ async def handle_ctlparams(msg_type: str, msg: dict, state: Jobstate) -> None:
     val = msg.get("v")
     log_h.info("ctlparams %s=%s", key, val)
 
-    if key == "MOTOR_ARM":
+    if key == CTL_MOTOR_ARM:
         ui_armed = True
         if pico is not None:
             try:
@@ -207,84 +266,88 @@ async def handle_ctlparams(msg_type: str, msg: dict, state: Jobstate) -> None:
         await emit_motor_info(state, link="searching")
         return
 
-    if key == "MOTOR_DISARM":
+    if key == CTL_MOTOR_DISARM:
         ui_armed = False
+        mixer.disable()
         log_h.info("MOTOR_DISARM")
-        await emit_motor_info(state)
+        if pico is not None:
+            await _apply_mixed_speeds(state, log_h)
+        else:
+            await emit_motor_info(state)
         return
 
-    if key == "ASC":
-        if pico is None:
-            log_h.warning("ASC ignored — Pico not open")
-            return
-        try:
-            reply = await _serial_call(pico.set_speed_asc, float(val))
-        except Exception as e:
-            link_error = str(e)
-            log_h.warning("ASC serial error: %s", e)
-            await _close_pico()
-            _request_rescan()
-            await emit_motor_info(state, link="error")
-            return
-        tracker.asc.set_command(pico.last_dir, pico.last_step_us, pico.enabled)
-        log_h.info("ASC set: %s", reply)
-        await emit_motor_info(state, link="connected")
+    if key == CTL_ASC:
+        mixer.set_ff_asc(float(val))
+        await _apply_mixed_speeds(state, log_h)
         return
 
-    if key == "DEC":
-        if pico is None:
-            log_h.warning("DEC ignored — Pico not open")
-            return
-        try:
-            reply = await _serial_call(pico.set_speed_dec, float(val))
-        except Exception as e:
-            link_error = str(e)
-            log_h.warning("DEC serial error: %s", e)
-            await _close_pico()
-            _request_rescan()
-            await emit_motor_info(state, link="error")
-            return
-        tracker.dec.set_command(
-            pico.last_dec_dir, pico.last_dec_step_us, pico.dec_enabled
-        )
-        log_h.info("DEC set: %s", reply)
-        await emit_motor_info(state, link="connected")
+    if key == CTL_DEC:
+        mixer.set_ff_dec(float(val))
+        await _apply_mixed_speeds(state, log_h)
         return
 
-    if key == "ASC_SIDEREAL":
-        if pico is None:
-            log_h.warning("ASC_SIDEREAL ignored — Pico not open")
-            return
-        speed = sidereal_speed_cmd()
-        try:
-            reply = await _serial_call(pico.set_speed_asc, speed)
-        except Exception as e:
-            link_error = str(e)
-            log_h.warning("ASC_SIDEREAL serial error: %s", e)
-            await _close_pico()
-            _request_rescan()
-            await emit_motor_info(state, link="error")
-            return
-        tracker.asc.set_command(pico.last_dir, pico.last_step_us, pico.enabled)
-        log_h.info("ASC_SIDEREAL (v=%s): %s", speed, reply)
-        await emit_motor_info(state, link="connected")
+    if key == CTL_ASC_SIDEREAL:
+        mixer.set_ff_asc(sidereal_speed_cmd())
+        await _apply_mixed_speeds(state, log_h)
         return
 
-    if key == "ASC_ZERO":
+    if key == CTL_GUIDE_ENABLE:
+        if not ui_armed or pico is None:
+            log_h.warning(
+                "GUIDE_ENABLE refused — armed=%s pico=%s",
+                ui_armed,
+                pico is not None,
+            )
+            await emit_motor_info(state)
+            return
+        mixer.enable()
+        log_h.info("GUIDE_ENABLE")
+        await _apply_mixed_speeds(state, log_h)
+        return
+
+    if key == CTL_GUIDE_DISABLE:
+        mixer.disable()
+        log_h.info("GUIDE_DISABLE")
+        if pico is not None:
+            await _apply_mixed_speeds(state, log_h)
+        else:
+            await emit_motor_info(state)
+        return
+
+    if key == CTL_GUIDE_DASC:
+        now = time.monotonic()
+        if not mixer.set_trim_asc(float(val), now):
+            log_h.info("GUIDE_DASC ignored — guide not enabled")
+            return
+        await _apply_mixed_speeds(state, log_h)
+        return
+
+    if key == CTL_GUIDE_DDEC:
+        now = time.monotonic()
+        if not mixer.set_trim_dec(float(val), now):
+            log_h.info("GUIDE_DDEC ignored — guide not enabled")
+            return
+        await _apply_mixed_speeds(state, log_h)
+        return
+
+    if key == CTL_ASC_ZERO:
         tracker.asc.zero()
         log_h.info("ASC_ZERO")
         return
 
-    if key == "DEC_ZERO":
+    if key == CTL_DEC_ZERO:
         tracker.dec.zero()
         log_h.info("DEC_ZERO")
         return
 
-    if key in ("ASC_RESET",):
+    if key == CTL_ASC_RESET:
+        mixer.set_ff_asc(0.0)
+        mixer.clear_asc_trim()
         if pico is not None:
             try:
                 reply = await _serial_call(pico.hard_stop_asc)
                 tracker.asc.stop()
+                _last_sent_asc = 0.0
                 log_h.info("ASC_RESET → hard stop: %s", reply)
                 await emit_motor_info(state, link="connected")
             except Exception as e:
@@ -295,11 +358,14 @@ async def handle_ctlparams(msg_type: str, msg: dict, state: Jobstate) -> None:
                 await emit_motor_info(state, link="error")
         return
 
-    if key in ("DEC_RESET",):
+    if key == CTL_DEC_RESET:
+        mixer.set_ff_dec(0.0)
+        mixer.clear_dec_trim()
         if pico is not None:
             try:
                 reply = await _serial_call(pico.hard_stop_dec)
                 tracker.dec.stop()
+                _last_sent_dec = 0.0
                 log_h.info("DEC_RESET → hard stop: %s", reply)
                 await emit_motor_info(state, link="connected")
             except Exception as e:
@@ -310,7 +376,7 @@ async def handle_ctlparams(msg_type: str, msg: dict, state: Jobstate) -> None:
                 await emit_motor_info(state, link="error")
         return
 
-    if key in ("DEC_CURR", "ASC_CURR"):
+    if key in (CTL_DEC_CURR, CTL_ASC_CURR):
         log_h.info("ignored (no TMC UART current yet): %s=%s", key, val)
         return
 
@@ -395,7 +461,10 @@ async def motor_serial_job(port: Optional[str], state: Jobstate) -> None:
                         await emit_motor_info(state, link="error")
                         break
 
-                await emit_motor_info(state, link="connected")
+                if mixer.expire(now):
+                    await _apply_mixed_speeds(state, log)
+                else:
+                    await emit_motor_info(state, link="connected")
                 await asyncio.sleep(TELEMETRY_PERIOD_S)
         except Exception:
             log.exception("motor_serial_job iteration failed; continuing")

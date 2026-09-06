@@ -12,6 +12,7 @@ from cam_locator import (
     locator_draw_xy,
     locator_glyph_metrics,
     locator_preview_xy,
+    preview_xy_to_full_sensor,
 )
 from cam_settings import CameraSettings, default_settings, diff_settings, from_legacy_dict
 from ws_messages import SENSOR_PRESETS, normalize_params_data
@@ -76,6 +77,16 @@ def test_resolution_change_keeps_relative_position():
         x, y = locator_preview_xy(nx, ny, wh, scaler_crop=crop)
         assert abs(x / (wh[0] - 1) - nx) < 1e-9
         assert abs(y / (wh[1] - 1) - ny) < 1e-9
+
+
+def test_preview_xy_roundtrip():
+    crop = [200, 100, 2000, 1500]
+    wh = (640, 480)
+    for nx, ny in ((0.3, 0.4), (0.5, 0.45), (0.2, 0.2)):
+        px, py = locator_preview_xy(nx, ny, wh, scaler_crop=crop)
+        back = preview_xy_to_full_sensor(px, py, wh, scaler_crop=crop)
+        assert abs(back[0] - nx) < 1e-9
+        assert abs(back[1] - ny) < 1e-9
 
 
 def test_center_crop_maps_sensor_center():

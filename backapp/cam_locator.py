@@ -87,6 +87,28 @@ def locator_preview_xy(
     return px, py
 
 
+def preview_xy_to_full_sensor(
+    px: float,
+    py: float,
+    preview_wh: Tuple[int, int],
+    scaler_crop: Optional[Sequence[Any]] = None,
+    full_wh: Tuple[int, int] = FULL_SENSOR_WH,
+) -> Tuple[float, float]:
+    """Inverse of locator_preview_xy (clicks on the JPEG → full-sensor fractions)."""
+    fw, fh = int(full_wh[0]), int(full_wh[1])
+    cx, cy, cw, ch = parse_scaler_crop(scaler_crop, full_wh)
+    pw, ph = int(preview_wh[0]), int(preview_wh[1])
+    rel_x = float(px) / float(pw - 1) if pw > 1 else 0.5
+    rel_y = float(py) / float(ph - 1) if ph > 1 else 0.5
+    rel_x = min(1.0, max(0.0, rel_x))
+    rel_y = min(1.0, max(0.0, rel_y))
+    sx = cx + rel_x * float(cw)
+    sy = cy + rel_y * float(ch)
+    nx = sx / float(fw) if fw else 0.5
+    ny = sy / float(fh) if fh else 0.5
+    return clamp01(nx), clamp01(ny)
+
+
 def clamp_locator_size(v: Any) -> float:
     try:
         n = float(v)

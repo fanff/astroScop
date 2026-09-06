@@ -1,0 +1,14 @@
+{
+  "run_id": "20260905T150329Z",
+  "stage": "guide_geom",
+  "host": "piscope",
+  "machine": "aarch64",
+  "iters": 10000,
+  "tile_size": null,
+  "p50_s": 1.1945000096602598e-05,
+  "p95_s": 1.222199989570072e-05,
+  "max_s": 3.759200035347021e-05,
+  "gate_p95_s": 0.0005,
+  "elapsed_s": 0.15046243999995568,
+  "pass": true
+}

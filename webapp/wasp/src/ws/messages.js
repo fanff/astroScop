@@ -44,4 +44,25 @@ export const INBOUND_TYPES = Object.freeze({
   sysInfo: 'sysInfo',
   motorInfo: 'motorInfo',
   camTiming: 'camTiming',
+  guideInfo: 'guideInfo',
+  guideSample: 'guideSample',
+  guideTrace: 'guideTrace',
+})
+
+/** Motor ctlparams keys (must match backapp/ws_messages.py). */
+export const CTL_KEYS = Object.freeze({
+  ASC: 'ASC',
+  DEC: 'DEC',
+  ASC_SIDEREAL: 'ASC_SIDEREAL',
+  MOTOR_ARM: 'MOTOR_ARM',
+  MOTOR_DISARM: 'MOTOR_DISARM',
+  ASC_ZERO: 'ASC_ZERO',
+  DEC_ZERO: 'DEC_ZERO',
+  ASC_RESET: 'ASC_RESET',
+  DEC_RESET: 'DEC_RESET',
+  GUIDE_ENABLE: 'GUIDE_ENABLE',
+  GUIDE_DISABLE: 'GUIDE_DISABLE',
+  GUIDE_DASC: 'GUIDE_DASC',
+  GUIDE_DDEC: 'GUIDE_DDEC',
+  GUIDE_TRACE_DUMP: 'GUIDE_TRACE_DUMP',
 })

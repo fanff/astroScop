@@ -19,7 +19,16 @@
 
       <section class="stage">
         <div class="preview">
-          <imgDisplay v-if="wsconnected" :imgProps="{}" :imgData="imgData" />
+          <imgDisplay
+            v-if="wsconnected"
+            :imgProps="imgProps"
+            :imgData="imgData"
+            :track="guideSettings"
+            :placeLock="placeLock"
+            :cropJpeg="cropJpeg"
+            :guideInfo="guideInfo"
+            @preview-click="onPreviewClick"
+          />
         </div>
 
         <div class="hudScroll">
@@ -46,6 +55,17 @@
                 @newParams="newParams"
                 @newMotorParams="newMotorParams"
               />
+              <guidePanel
+                :settings="guideSettings"
+                :placeLock="placeLock"
+                :mixerWanted="mixerWanted"
+                :guideInfo="guideInfo"
+                :motorInfo="latestMotor"
+                @update:settings="onGuideSettings"
+                @update:placeLock="placeLock = $event"
+                @update:mixerWanted="onMixerWanted"
+              />
+              <guideTrace :rows="guideTraceRows" />
             </div>
           </div>
         </div>
@@ -56,6 +76,8 @@
 
 <script>
 import captureOptions from './components/captureOptions.vue'
+import guidePanel from './components/guidePanel.vue'
+import guideTrace from './components/guideTrace.vue'
 import imgDisplay from './components/imgDisplay.vue'
 import imgProps from './components/imgProps.vue'
 import imgStats from './components/imgStats.vue'
@@ -67,7 +89,16 @@ import {
   buildCtlParamsMessage,
   parseInbound,
   INBOUND_TYPES,
+  CTL_KEYS,
 } from './ws/messages.js'
+import {
+  captureSpaceKey,
+  defaultGuideSettings,
+  pickGuideSettings,
+  toWireSettings,
+} from './ws/cameraSettings.js'
+import { guideEnableAllowed, guideMixerKeepAllowed } from './ws/guideEnable.js'
+import { appendRow, applyDump, rowFromGuideInfo, rowsFromPayload } from './ws/guideTrace.js'
 
 const STATS_CAP = 100
 const WSIP_STORAGE_KEY = 'astroscop.wsip'
@@ -105,6 +136,8 @@ export default {
   name: 'App',
   components: {
     captureOptions,
+    guidePanel,
+    guideTrace,
     imgDisplay,
     imgProps,
     imgStats,
@@ -123,6 +156,12 @@ export default {
       /** Frozen once per connection from first usedParams.settings — not per-frame. */
       settingsSnapshot: null,
       settingsEpoch: 0,
+      captureSettings: null,
+      guideSettings: defaultGuideSettings(),
+      placeLock: false,
+      guideInfo: null,
+      cropJpeg: '',
+      mixerWanted: false,
       showSettings: false,
       showMotorstats: false,
       diskUsage: [],
@@ -131,7 +170,33 @@ export default {
       },
       camStats: [],
       motorStats: [],
+      guideTraceRows: [],
     }
+  },
+  computed: {
+    latestMotor() {
+      if (!this.motorStats.length) return {}
+      const last = this.motorStats[this.motorStats.length - 1]
+      return last.data || last || {}
+    },
+    mixerGatesOk() {
+      return guideEnableAllowed({
+        motor: this.latestMotor,
+        guide: this.guideInfo,
+        settings: this.guideSettings,
+      })
+    },
+    mixerKeepOk() {
+      return guideMixerKeepAllowed({
+        motor: this.latestMotor,
+        settings: this.guideSettings,
+      })
+    },
+  },
+  watch: {
+    mixerKeepOk(ok) {
+      if (!ok && this.mixerWanted) this.dropMixer()
+    },
   },
   methods: {
     onmessage(msg) {
@@ -154,6 +219,8 @@ export default {
             if (settings && typeof settings === 'object') {
               this.settingsSnapshot = Object.freeze({ ...settings })
               this.settingsEpoch += 1
+              this.captureSettings = toWireSettings(settings)
+              this.guideSettings = pickGuideSettings(settings)
             }
           }
           break
@@ -175,6 +242,22 @@ export default {
           }
           this.camStats.push(raw)
           break
+        case INBOUND_TYPES.guideInfo:
+        case INBOUND_TYPES.guideSample:
+          this.guideInfo = data && typeof data === 'object' ? data : null
+          if (this.guideInfo && typeof this.guideInfo.jpeg === 'string') {
+            this.cropJpeg = this.guideInfo.jpeg
+          } else if (!this.guideSettings.guide_show_crop) {
+            this.cropJpeg = ''
+          }
+          this.pushGuideTrace(this.guideInfo)
+          break
+        case INBOUND_TYPES.guideTrace:
+          this.guideTraceRows = applyDump(
+            this.guideTraceRows,
+            rowsFromPayload(data && typeof data === 'object' ? data : {})
+          )
+          break
         default:
           console.log('got message', msgtype, raw)
       }
@@ -195,10 +278,69 @@ export default {
       this.wsconnected = false
       this.imgProps = {}
       this.settingsSnapshot = null
+      this.guideInfo = null
+      this.cropJpeg = ''
+      this.placeLock = false
+      this.mixerWanted = false
+    },
+    dropMixer() {
+      this.mixerWanted = false
+      this.newMotorParams({ k: CTL_KEYS.GUIDE_DISABLE, v: 0 })
+    },
+    pushGuideTrace(info) {
+      const row = rowFromGuideInfo(info)
+      if (!row) return
+      const last = this.guideTraceRows[this.guideTraceRows.length - 1]
+      if (last && last.t === row.t) return
+      appendRow(this.guideTraceRows, row)
+    },
+    sendMerged() {
+      if (!this.wsconnected || !this.connection || !this.captureSettings) return
+      this.connection.send(
+        JSON.stringify(
+          buildParamsMessage({ ...this.captureSettings, ...this.guideSettings })
+        )
+      )
     },
     newParams(params) {
-      if (!this.wsconnected || !this.connection) return
-      this.connection.send(JSON.stringify(buildParamsMessage(params)))
+      if (this.captureSettings && captureSpaceKey(this.captureSettings) !== captureSpaceKey(params)) {
+        this.guideSettings = pickGuideSettings({
+          ...this.guideSettings,
+          track_enabled: false,
+        })
+        this.placeLock = false
+        this.dropMixer()
+      }
+      this.captureSettings = params
+      this.sendMerged()
+    },
+    onGuideSettings(next) {
+      const prevTrack = this.guideSettings.track_enabled
+      this.guideSettings = pickGuideSettings(next)
+      if (!this.guideSettings.guide_show_crop) {
+        this.cropJpeg = ''
+      }
+      if (prevTrack && !this.guideSettings.track_enabled) {
+        this.dropMixer()
+      }
+      this.sendMerged()
+    },
+    onMixerWanted(want) {
+      if (want && !this.mixerGatesOk) return
+      this.mixerWanted = Boolean(want)
+      this.newMotorParams({
+        k: this.mixerWanted ? CTL_KEYS.GUIDE_ENABLE : CTL_KEYS.GUIDE_DISABLE,
+        v: this.mixerWanted ? 1 : 0,
+      })
+    },
+    onPreviewClick({ x, y }) {
+      this.guideSettings = pickGuideSettings({
+        ...this.guideSettings,
+        track_enabled: true,
+        track_x: x,
+        track_y: y,
+      })
+      this.sendMerged()
     },
     newMotorParams(params) {
       if (!this.wsconnected || !this.connection) return

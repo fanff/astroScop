@@ -22,6 +22,10 @@
           <span>DEC {{ fmtDeg(info.newdecDeg) }}° s{{ fmt(info.decStep) }}</span>
         </div>
       </div>
+      <div v-if="showApplied" class="applied">
+        applied {{ fmtSpd(appliedAsc) }} / {{ fmtSpd(appliedDec) }} STEP/s
+        (ff + trim)
+      </div>
 
       <div
         v-memo="[
@@ -274,6 +278,25 @@ export default {
       const dec = `DEC en=${d.decEn ?? '?'} dir=${d.decDir ?? '?'} ${d.decStepUs ?? '—'}µs`
       return `${asc} · ${dec}`
     },
+    showApplied() {
+      return Number.isFinite(Number(this.info.ffAsc)) || Number.isFinite(Number(this.info.ffDec))
+    },
+    appliedAsc() {
+      const cmd = Number(this.info.cmdAsc)
+      if (Number.isFinite(cmd)) return cmd
+      const ff = Number(this.info.ffAsc)
+      const d = this.info.guideEnabled ? Number(this.info.dAsc) : 0
+      if (!Number.isFinite(ff)) return NaN
+      return ff + (Number.isFinite(d) ? d : 0)
+    },
+    appliedDec() {
+      const cmd = Number(this.info.cmdDec)
+      if (Number.isFinite(cmd)) return cmd
+      const ff = Number(this.info.ffDec)
+      const d = this.info.guideEnabled ? Number(this.info.dDec) : 0
+      if (!Number.isFinite(ff)) return NaN
+      return ff + (Number.isFinite(d) ? d : 0)
+    },
   },
   watch: {
     checked(armed) {
@@ -316,6 +339,11 @@ export default {
     fmtDeg(v) {
       if (v === undefined || v === null || Number.isNaN(Number(v))) return '—'
       return Number(v).toFixed(3)
+    },
+    fmtSpd(v) {
+      const n = Number(v)
+      if (!Number.isFinite(n)) return '—'
+      return n.toFixed(2)
     },
     axisState(axis) {
       if (axis === 'dec') {
@@ -444,6 +472,12 @@ export default {
 .telem .sep {
   margin: 0 4px;
   opacity: 0.6;
+}
+.applied {
+  font-family: monospace, sans-serif;
+  font-size: 11px;
+  color: var(--fg-dim, #8a2a26);
+  margin: -4px 0 10px;
 }
 .axis {
   display: flex;

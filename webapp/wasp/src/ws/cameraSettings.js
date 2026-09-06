@@ -230,6 +230,19 @@ export function defaultCameraSettings() {
     locator_x: 0.5,
     locator_y: 0.5,
     locator_size: 1.0,
+    track_enabled: false,
+    track_x: 0.5,
+    track_y: 0.5,
+    track_roi: 32,
+    track_theta_deg: 0,
+    track_flip_asc: false,
+    track_flip_dec: false,
+    guide_dec_deg: 0,
+    guide_focal_mm: 18,
+    guide_show_crop: false,
+    guide_stack_n: 5,
+    guide_kp: 0.25,
+    guide_ki: 0.02,
   }
 }
 
@@ -284,6 +297,20 @@ export function toWireSettings(partial = {}) {
   out.locator_x = clampNorm(out.locator_x)
   out.locator_y = clampNorm(out.locator_y)
   out.locator_size = clampLocatorSize(out.locator_size)
+  out.track_enabled = Boolean(out.track_enabled)
+  out.track_x = clampNorm(out.track_x)
+  out.track_y = clampNorm(out.track_y)
+  out.track_roi = clampTrackRoi(out.track_roi)
+  out.track_theta_deg = clampTrackTheta(out.track_theta_deg)
+  out.track_flip_asc = Boolean(out.track_flip_asc)
+  out.track_flip_dec = Boolean(out.track_flip_dec)
+  out.guide_dec_deg = clamp(Number(out.guide_dec_deg) || 0, -90, 90)
+  const fmm = Number(out.guide_focal_mm)
+  out.guide_focal_mm = Number.isFinite(fmm) ? Math.max(0, fmm) : 18
+  out.guide_show_crop = Boolean(out.guide_show_crop)
+  out.guide_stack_n = clampGuideStackN(out.guide_stack_n)
+  out.guide_kp = clampGuideKp(out.guide_kp)
+  out.guide_ki = clampGuideKi(out.guide_ki)
 
   // Drop legacy absolute display size if a partial still carries it.
   delete out.display_width
@@ -345,4 +372,104 @@ export function clampLocatorSize(v) {
 
 export function formatLocatorSize(v) {
   return `×${clampLocatorSize(v).toFixed(2)}`
+}
+
+export const TRACK_ROI_MIN = 8
+export const TRACK_ROI_MAX = 64
+export const TRACK_ROI_DEFAULT = 32
+
+export function clampTrackRoi(v) {
+  const n = Math.round(Number(v))
+  if (!Number.isFinite(n)) return TRACK_ROI_DEFAULT
+  return Math.min(TRACK_ROI_MAX, Math.max(TRACK_ROI_MIN, n))
+}
+
+export const GUIDE_STACK_MIN = 1
+export const GUIDE_STACK_MAX = 15
+export const GUIDE_STACK_DEFAULT = 5
+
+export function clampGuideStackN(v) {
+  const n = Math.round(Number(v))
+  if (!Number.isFinite(n)) return GUIDE_STACK_DEFAULT
+  return Math.min(GUIDE_STACK_MAX, Math.max(GUIDE_STACK_MIN, n))
+}
+
+export const GUIDE_KP_MIN = 0
+export const GUIDE_KP_MAX = 4
+export const GUIDE_KP_DEFAULT = 0.25
+export const GUIDE_KI_MIN = 0
+export const GUIDE_KI_MAX = 0.5
+export const GUIDE_KI_DEFAULT = 0.02
+
+export function clampGuideKp(v) {
+  const n = Number(v)
+  if (!Number.isFinite(n)) return GUIDE_KP_DEFAULT
+  return Math.min(GUIDE_KP_MAX, Math.max(GUIDE_KP_MIN, n))
+}
+
+export function clampGuideKi(v) {
+  const n = Number(v)
+  if (!Number.isFinite(n)) return GUIDE_KI_DEFAULT
+  return Math.min(GUIDE_KI_MAX, Math.max(GUIDE_KI_MIN, n))
+}
+
+export function clampTrackTheta(v) {
+  const n = Math.round(Number(v) / 90) * 90
+  if (!Number.isFinite(n)) return 0
+  const wrapped = ((n % 360) + 360) % 360
+  return wrapped
+}
+
+export function defaultGuideSettings() {
+  const d = defaultCameraSettings()
+  return {
+    track_enabled: d.track_enabled,
+    track_x: d.track_x,
+    track_y: d.track_y,
+    track_roi: d.track_roi,
+    track_theta_deg: d.track_theta_deg,
+    track_flip_asc: d.track_flip_asc,
+    track_flip_dec: d.track_flip_dec,
+    guide_dec_deg: d.guide_dec_deg,
+    guide_focal_mm: d.guide_focal_mm,
+    guide_show_crop: d.guide_show_crop,
+    guide_stack_n: d.guide_stack_n,
+    guide_kp: d.guide_kp,
+    guide_ki: d.guide_ki,
+  }
+}
+
+export function pickGuideSettings(partial = {}) {
+  const d = defaultGuideSettings()
+  const src = { ...d, ...partial }
+  return {
+    track_enabled: Boolean(src.track_enabled),
+    track_x: clampNorm(src.track_x),
+    track_y: clampNorm(src.track_y),
+    track_roi: clampTrackRoi(src.track_roi),
+    track_theta_deg: clampTrackTheta(src.track_theta_deg),
+    track_flip_asc: Boolean(src.track_flip_asc),
+    track_flip_dec: Boolean(src.track_flip_dec),
+    guide_dec_deg: clamp(Number(src.guide_dec_deg) || 0, -90, 90),
+    guide_focal_mm: (() => {
+      const fmm = Number(src.guide_focal_mm)
+      return Number.isFinite(fmm) ? Math.max(0, fmm) : 18
+    })(),
+    guide_show_crop: Boolean(src.guide_show_crop),
+    guide_stack_n: clampGuideStackN(src.guide_stack_n),
+    guide_kp: clampGuideKp(src.guide_kp),
+    guide_ki: clampGuideKi(src.guide_ki),
+  }
+}
+
+export function captureSpaceKey(settings = {}) {
+  const s = settings || {}
+  const crop = Array.isArray(s.scaler_crop) ? s.scaler_crop.join(',') : ''
+  return [
+    String(s.sensor_preset || ''),
+    s.main_width == null ? '' : String(s.main_width),
+    s.main_height == null ? '' : String(s.main_height),
+    String(previewDivFromSettings(s)),
+    crop,
+  ].join('|')
 }

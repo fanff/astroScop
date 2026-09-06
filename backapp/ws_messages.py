@@ -3,6 +3,10 @@ Thin Pydantic envelopes for the camera ↔ rootserver ↔ UI WebSocket path.
 
 Settings validation lives in ``cam_settings.CameraSettings``; this module only
 wraps wire msgtypes the hub must understand first-class.
+
+Motor ``ctlparams`` keys and guide sample/info shapes are named here so later
+phases do not invent a second vocabulary. The hub still relays ``ctlparams``
+opaquely; the motor worker owns the mixer.
 """
 
 from __future__ import annotations
@@ -124,6 +128,83 @@ def hist_data_from_spectrum(spectrum: Union[SpectrumStats, Dict[str, Any]]) -> L
         return [math.log10(float(v) + 1.0) for v in vals]
 
     return [_log_hist(spectrum.hist_r), _log_hist(spectrum.hist_g), _log_hist(spectrum.hist_b)]
+
+
+# --- motor / guide wire names (Phase A) ---
+
+CTL_ASC = "ASC"
+CTL_DEC = "DEC"
+CTL_ASC_SIDEREAL = "ASC_SIDEREAL"
+CTL_MOTOR_ARM = "MOTOR_ARM"
+CTL_MOTOR_DISARM = "MOTOR_DISARM"
+CTL_ASC_ZERO = "ASC_ZERO"
+CTL_DEC_ZERO = "DEC_ZERO"
+CTL_ASC_RESET = "ASC_RESET"
+CTL_DEC_RESET = "DEC_RESET"
+CTL_ASC_CURR = "ASC_CURR"
+CTL_DEC_CURR = "DEC_CURR"
+CTL_GUIDE_ENABLE = "GUIDE_ENABLE"
+CTL_GUIDE_DISABLE = "GUIDE_DISABLE"
+CTL_GUIDE_DASC = "GUIDE_DASC"
+CTL_GUIDE_DDEC = "GUIDE_DDEC"
+CTL_GUIDE_TRACE_DUMP = "GUIDE_TRACE_DUMP"
+
+
+class GuideSample(BaseModel):
+    """Centroid sample from the guide worker (Phase E+). Hub fan-out is later."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    msgtype: str = "guideSample"
+    t: float = 0.0
+    ok: bool = False
+    u: float = 0.0
+    v: float = 0.0
+    lock_u: float = 0.0
+    lock_v: float = 0.0
+    roi_origin_u: float = 0.0
+    roi_origin_v: float = 0.0
+    snr: float = 0.0
+    reason: str = ""
+    n_gated: int = 0
+    e_asc_arcsec: float = 0.0
+    e_dec_arcsec: float = 0.0
+    e_asc_steps: float = 0.0
+    e_dec_steps: float = 0.0
+    e_asc_px: float = 0.0
+    e_dec_px: float = 0.0
+    dAsc: float = 0.0
+    dDec: float = 0.0
+    dec_deg: float = 0.0
+    focal_mm: float = 0.0
+    preset: str = ""
+    bin: int = 1
+    stack_n: int = 5
+    kp: float = 0.25
+    ki: float = 0.02
+
+
+class GuideInfo(BaseModel):
+    """UI-facing guide status (subset of sample + lock flags)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    msgtype: str = "guideInfo"
+    data: Dict[str, Any] = Field(default_factory=dict)
+
+
+class MotorInfoGuideFields(BaseModel):
+    """Extra motorInfo keys while the mixer is present (sliders stay on ff)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    guideEnabled: bool = False
+    dAsc: float = 0.0
+    dDec: float = 0.0
+    ffAsc: float = 0.0
+    ffDec: float = 0.0
+    cmdAsc: float = 0.0
+    cmdDec: float = 0.0
 
 
 def try_normalize_params(data: Any) -> Optional[CameraSettings]:

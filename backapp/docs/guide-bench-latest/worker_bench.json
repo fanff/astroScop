@@ -1,0 +1,66 @@
+{
+  "run_id": "20260905T154606Z",
+  "stage": "guide_worker",
+  "host": "piscope",
+  "machine": "aarch64",
+  "on_pi": true,
+  "timing_ok": true,
+  "pass": true,
+  "failures": [],
+  "cases": {
+    "hz5_jpeg_off": {
+      "hz": 5.0,
+      "duration_s": 30.0,
+      "jpeg": false,
+      "generated": 150,
+      "processed": 150,
+      "skipped": 0,
+      "pending_peak": 1,
+      "backlog": 0,
+      "loop": {
+        "n": 150,
+        "p50_s": 0.001549385999965125,
+        "p95_s": 0.004703460799930775,
+        "max_s": 0.0566219690001617,
+        "gate_p95_s": 0.02,
+        "pass": true
+      }
+    },
+    "hz10_jpeg_off": {
+      "hz": 10.0,
+      "duration_s": 10.0,
+      "jpeg": false,
+      "generated": 100,
+      "processed": 100,
+      "skipped": 0,
+      "pending_peak": 1,
+      "backlog": 0,
+      "loop": {
+        "n": 100,
+        "p50_s": 0.0015327559999605,
+        "p95_s": 0.003884183150046283,
+        "max_s": 0.006538522999790075,
+        "gate_p95_s": 0.02,
+        "pass": true
+      }
+    },
+    "hz5_jpeg_on": {
+      "hz": 5.0,
+      "duration_s": 8.0,
+      "jpeg": true,
+      "generated": 40,
+      "processed": 40,
+      "skipped": 0,
+      "pending_peak": 1,
+      "backlog": 0,
+      "loop": {
+        "n": 40,
+        "p50_s": 0.002082161499970425,
+        "p95_s": 0.0061416156499149105,
+        "max_s": 0.026079017000029125,
+        "gate_p95_s": 0.015,
+        "pass": true
+      }
+    }
+  }
+}

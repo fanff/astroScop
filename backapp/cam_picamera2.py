@@ -47,6 +47,7 @@ from cam_stream_recovery import (
     stream_retry_backoff_s,
 )
 from cam_timing_rates import CaptureClock, compute_timing_rates
+from guide_handoff import GuidePublisher
 
 continue_loop = True
 pending_settings = None  # CameraSettings | None — queued from WS
@@ -76,6 +77,9 @@ SCIENCE_STORAGE = ScienceStorageClient()  # auto ring: ~60% RAM / Bayer slot siz
 
 # Wall-clock capture cadence (independent of preview emit throttle).
 CAPTURE_CLOCK = CaptureClock()
+
+# Native RGB tile for the guide worker (latest-wins shm). No-op until track_enabled.
+GUIDE_PUBLISHER = GuidePublisher()
 
 # Cached Picamera2.sensor_modes (expensive property) keyed by camera instance id.
 _SENSOR_MODES_CACHE = {}
@@ -813,6 +817,7 @@ def close_camera(picam2):
     except Exception:
         pass
     clear_sensor_modes_cache(picam2)
+    GUIDE_PUBLISHER.close()
 
 
 def _legacy_bundle_from_settings(settings):
@@ -1036,6 +1041,18 @@ async def open_camera(settings):
         CAPTURE_CLOCK.note_capture(time.monotonic())
         if bayer_u16 is not None:
             publish_science_frame(bayer_u16, raw_info, used, current_settings)
+        if current_settings is not None and current_settings.track_enabled:
+            GUIDE_PUBLISHER.on_frame(
+                rgb,
+                track_enabled=True,
+                track_x=current_settings.track_x,
+                track_y=current_settings.track_y,
+                track_roi=current_settings.track_roi,
+                scaler_crop=used.get("ScalerCrop"),
+                t=used.get("triggerDate"),
+            )
+        # Tracking off: stop writing, but do not unlink. The guide worker stays
+        # attached; a later lock-on writes into the same slot.
         PREVIEW_BUFF.stack((rgb, used, used["triggerDate"]))
 
     try:

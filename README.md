@@ -7,12 +7,12 @@ UI (wasp) ──WebSocket──► rootserver :8765
                               │
               ┌───────────────┼───────────────┐
               ▼               ▼               ▼
-        cam_picamera2    motorControl     gyroControl
-        (picamera2)      (USB serial)     (optional)
-              │               │
-              ▼               ▼
-           IMX477          Pico 2 W
-                           (ASC + DEC)
+        cam_picamera2    motorControl     guideControl
+        (picamera2)      (USB serial)     (isolate+PI)
+              │               │               │
+              ▼               ▼               │
+           IMX477          Pico 2 W ◄─────────┘
+                           (ASC + DEC, mixer)
 ```
 
 ## Layout
@@ -34,6 +34,7 @@ Installed via [`backapp/deploy/install_on_pi.sh`](backapp/deploy/install_on_pi.s
 | `astroscop-rootserver` | [`backapp/rootserver.py`](backapp/rootserver.py) — WS hub |
 | `astroscop-camera` | [`backapp/cam_picamera2.py`](backapp/cam_picamera2.py) — HQ capture + preview |
 | `astroscop-motor` | [`backapp/motorControl.py`](backapp/motorControl.py) — rates ↔ Pico |
+| `astroscop-guide` | [`backapp/guideControl.py`](backapp/guideControl.py) — isolate + PI; trims to mixer (`GUIDE_ENABLE` still required) |
 
 Camera settings contract (wire format, slow/fast fields): [`backapp/docs/camera-settings-contract.md`](backapp/docs/camera-settings-contract.md).  
 Hardware / modes / science notes: [`backapp/docs/pi-hq-camera.md`](backapp/docs/pi-hq-camera.md).

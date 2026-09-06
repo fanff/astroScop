@@ -28,15 +28,19 @@ Do **not** invent overlapping gain controls. If code and this doc disagree, trus
 
 ```text
 UI  --msgtype:"params"-->  rootserver  --same msg-->  cam_picamera2
+                                 │
+                                 └──same msg-->  guideControl  (/guide)
                                                          │
-                                                         ├─ from_legacy_dict → CameraSettings
-                                                         ├─ slow? reconfigure : fast? set_controls
-                                                         └─ capture → srcimage (+ spectrum) → rootserver → UI
+                                                         ├─ geometry + PI
+                                                         └─ guideInfo (sanitized) → UI
+                                                            ctlparams GUIDE_D* → motor
 ```
 
 - Camera WS path: `ws://…:8765/camera` (worker connects here).
-- Browser clients use the default user path; they send `params` and receive broadcast images / `camTiming`.
-- Worker never applies settings on the WS receive thread: it queues `pending_settings`; the capture loop applies them between frames.
+- Guide WS path: `ws://…:8765/guide` (not a browser user). Same validated `params` as the camera; the camera only uses `track_*` for the RGB crop.
+- Browser clients use the default user path; they send `params` and receive broadcast images / `camTiming` / sanitized `guideInfo`.
+- Pixel tiles stay on shm (`astroscop-guide-tile`). Hub strips `tile` / `imageData` / `rgb`; a string `jpeg` on `guideInfo` is forwarded when `guide_show_crop` is on.
+- Camera worker never applies settings on the WS receive thread: it queues `pending_settings`; the capture loop applies them between frames.
 
 ---
 
@@ -146,6 +150,19 @@ Preferred `params.data` shape. Extra keys are **ignored** (`extra="ignore"`). Ty
 | `locator_x` | float 0…1 | `0.5` | **output** | Full IMX477 sensor X (0 = left) |
 | `locator_y` | float 0…1 | `0.5` | **output** | Full IMX477 sensor Y (0 = top) |
 | `locator_size` | float 0.15…3.0 | `1.0` | **output** | Circle radius scale vs the default mark |
+| `track_enabled` | bool | `false` | **output** | Copy a native RGB tile for the guide worker (not isolation / not JPEG) |
+| `track_x` | float 0…1 | `0.5` | **output** | Full IMX477 lock X (same space as `locator_x`) |
+| `track_y` | float 0…1 | `0.5` | **output** | Full IMX477 lock Y |
+| `track_roi` | int 8…64 | `32` | **output** | Crop **half-size** in capture pixels (64×64 default) |
+| `track_theta_deg` | float | `0` | **output** | Chip rotation: θ=0 means ASC+ is +u, DEC+ is +v |
+| `track_flip_asc` | bool | `false` | **output** | Flip ASC axis after rotation |
+| `track_flip_dec` | bool | `false` | **output** | Flip DEC axis after rotation |
+| `guide_dec_deg` | float −90…90 | `0` | **output** | Celestial δ for `cos δ` (typed; not mount counts) |
+| `guide_focal_mm` | float ≥ 0 | `18` | **output** | OTA focal length; `≤ 0` refuses the guide loop |
+| `guide_show_crop` | bool | `false` | **output** | Guide worker encodes a small tile JPEG; hub forwards `guideInfo.data.jpeg` (still strips `tile`) |
+| `guide_stack_n` | int 1…15 | `5` | **output** | Median-stack length in the guide worker before isolate |
+| `guide_kp` | float 0…4 | `0.25` | **output** | PI proportional gain (STEP/s per axis pixel); live, does not reset I |
+| `guide_ki` | float 0…0.5 | `0.02` | **output** | PI integral gain (STEP/s per axis pixel per s); live, does not reset I |
 
 ### Apply classes (what rootserver/UI should expect latency-wise)
 
@@ -153,7 +170,7 @@ Preferred `params.data` shape. Extra keys are **ignored** (`extra="ignore"`). Ty
 |-------|--------|------------------|
 | **Slow** | `sensor_preset`, `main_*`, `include_raw` | stop → configure → start (brief blackout) |
 | **Fast** | `shutter_us`, `analog_gain`, `colour_gain_*`, `scaler_crop`, `science_neutral` | single `set_controls` (streaming) |
-| **Output** | `preview_div`, `save_*`, `max_emit_fps`, `locator_*` | no sensor reconfig |
+| **Output** | `preview_div`, `save_*`, `max_emit_fps`, `locator_*`, `track_*`, `guide_*` | no sensor reconfig |
 
 Classification is implemented by `diff_settings()` in [`cam_settings.py`](../cam_settings.py). Changing a slow field forces a full reopen of the capture loop.
 
@@ -179,7 +196,20 @@ Classification is implemented by `diff_settings()` in [`cam_settings.py`](../cam
     "locator_enabled": false,
     "locator_x": 0.5,
     "locator_y": 0.5,
-    "locator_size": 1.0
+    "locator_size": 1.0,
+    "track_enabled": false,
+    "track_x": 0.5,
+    "track_y": 0.5,
+    "track_roi": 32,
+    "track_theta_deg": 0,
+    "track_flip_asc": false,
+    "track_flip_dec": false,
+    "guide_dec_deg": 0,
+    "guide_focal_mm": 18,
+    "guide_show_crop": false,
+    "guide_stack_n": 5,
+    "guide_kp": 0.25,
+    "guide_ki": 0.02
   }
 }
 ```
@@ -309,6 +339,9 @@ Expose controls that match the canonical fields. Suggested UX:
 | Preview scale | `preview_div` | `1`/`2`/`4`/`8` — aspect-preserving JPEG downsample; UI paints with `object-fit: contain` |
 | Preview FPS cap | `max_emit_fps` | Default 8 |
 | Locator | `locator_enabled` + `locator_x` / `locator_y` + `locator_size` | Preview JPEG overlay; X/Y are full-sensor fractions; size scales the circle; crop clamps to the visible edge |
+| Tracking lock | `track_enabled` + `track_x` / `track_y` + `track_roi` | Native RGB crop for guiding; separate from the composition locator; default off |
+| Guide geometry | `track_theta_deg`, `track_flip_*`, `guide_dec_deg`, `guide_focal_mm`, `guide_stack_n`, `guide_kp`, `guide_ki` | Hub fans these to camera **and** `/guide`; camera ignores geometry for crop |
+| Show work crop | `guide_show_crop` | Guide worker encodes JPEG; wasp shows an inset from `guideInfo.data.jpeg` |
 | Save arm | `save_enabled` | Runtime on/off; Bayer `.npy` only (separate storage process) |
 | Save path | `save_root` + section | Runtime destination; no sensor reconfig |
 

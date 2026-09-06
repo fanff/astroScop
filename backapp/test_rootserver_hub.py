@@ -124,6 +124,19 @@ def test_normalize_strips_iso():
     assert d["colour_gain_r"] == 1.1
     assert "isovalue" not in d
     assert try_normalize_params({"analog_gain": -1}) is None
+    geom = normalize_params_data(
+        {
+            "track_theta_deg": 90,
+            "guide_focal_mm": 500,
+            "guide_show_crop": True,
+            "guide_stack_n": 8,
+        }
+    )
+    gd = geom.to_wire_dict()
+    assert gd["track_theta_deg"] == 90.0
+    assert gd["guide_focal_mm"] == 500.0
+    assert gd["guide_show_crop"] is True
+    assert gd["guide_stack_n"] == 8
 
 
 def test_preview_div_and_wh():
@@ -225,6 +238,12 @@ async def test_params_canonical_and_legacy(port: int):
         assert last["data"]["locator_enabled"] is True
         assert abs(float(last["data"]["locator_x"]) - 0.25) < 1e-9
         assert abs(float(last["data"]["locator_y"]) - 0.75) < 1e-9
+        assert last["data"]["track_theta_deg"] == 0.0
+        assert last["data"]["guide_focal_mm"] == 18.0
+        assert last["data"]["guide_show_crop"] is False
+        assert last["data"]["guide_stack_n"] == 5
+        assert abs(float(last["data"]["guide_kp"]) - 0.25) < 1e-9
+        assert abs(float(last["data"]["guide_ki"]) - 0.02) < 1e-9
 
         # Invalid — not forwarded
         n = len(cam_msgs)
@@ -472,6 +491,210 @@ async def test_srcimage_seeds_current_params(port: int):
         assert msg["data"]["shutter_us"] == 9999
 
 
+async def test_guide_hub_fanout(port: int):
+    cam_msgs = []
+    guide_msgs = []
+    motor_msgs = []
+    ui_msgs = []
+    jpeg = _tiny_jpeg_b64()
+
+    async def collect(path, bucket):
+        async with websockets.connect(f"ws://127.0.0.1:{port}{path}") as ws:
+            while True:
+                bucket.append(json.loads(await ws.recv()))
+
+    tasks = [
+        asyncio.create_task(collect("/camera", cam_msgs)),
+        asyncio.create_task(collect("/guide", guide_msgs)),
+        asyncio.create_task(collect("/motor", motor_msgs)),
+        asyncio.create_task(collect("/", ui_msgs)),
+    ]
+    await asyncio.sleep(0.08)
+
+    async with websockets.connect(f"ws://127.0.0.1:{port}/") as ui:
+        await ui.send(
+            json.dumps(
+                {
+                    "msgtype": "params",
+                    "data": {
+                        "track_enabled": True,
+                        "track_x": 0.3,
+                        "track_y": 0.4,
+                        "track_roi": 24,
+                        "track_theta_deg": 90.0,
+                        "track_flip_asc": True,
+                        "guide_dec_deg": 42.0,
+                        "guide_focal_mm": 500.0,
+                        "guide_show_crop": True,
+                        "guide_stack_n": 8,
+                    },
+                }
+            )
+        )
+        await asyncio.sleep(0.15)
+
+        def _geom(msgs):
+            params = [m for m in msgs if m.get("msgtype") == "params"]
+            assert params, "worker should receive params"
+            return params[-1]["data"]
+
+        cam_data = _geom(cam_msgs)
+        guide_data = _geom(guide_msgs)
+        for data in (cam_data, guide_data):
+            assert data["track_enabled"] is True
+            assert abs(float(data["track_x"]) - 0.3) < 1e-9
+            assert abs(float(data["track_theta_deg"]) - 90.0) < 1e-9
+            assert data["track_flip_asc"] is True
+            assert abs(float(data["guide_dec_deg"]) - 42.0) < 1e-9
+            assert abs(float(data["guide_focal_mm"]) - 500.0) < 1e-9
+            assert data["guide_show_crop"] is True
+            assert int(data["guide_stack_n"]) == 8
+
+        await ui.send(
+            json.dumps({"msgtype": "ctlparams", "k": "GUIDE_ENABLE", "v": 1})
+        )
+        await asyncio.sleep(0.15)
+        assert any(
+            m.get("msgtype") == "ctlparams" and m.get("k") == "GUIDE_ENABLE"
+            for m in motor_msgs
+        )
+        assert any(
+            m.get("msgtype") == "ctlparams" and m.get("k") == "GUIDE_ENABLE"
+            for m in guide_msgs
+        )
+        assert not any(m.get("msgtype") == "ctlparams" for m in ui_msgs)
+
+        async with websockets.connect(f"ws://127.0.0.1:{port}/guide") as guide:
+            raw = await asyncio.wait_for(guide.recv(), timeout=2.0)
+            seeded = json.loads(raw)
+            assert seeded["msgtype"] == "params"
+            assert abs(float(seeded["data"]["guide_focal_mm"]) - 500.0) < 1e-9
+            assert int(seeded["data"]["guide_stack_n"]) == 8
+
+            await guide.send(
+                json.dumps(
+                    {
+                        "msgtype": "guideInfo",
+                        "data": {
+                            "ok": True,
+                            "dAsc": 0.12,
+                            "dDec": -0.04,
+                            "jpeg": jpeg,
+                            "tile": "PIXELBLOB",
+                            "imageData": jpeg,
+                        },
+                    }
+                )
+            )
+            await guide.send(
+                json.dumps({"msgtype": "ctlparams", "k": "GUIDE_DASC", "v": 0.12})
+            )
+            await guide.send(
+                json.dumps({"msgtype": "ctlparams", "k": "GUIDE_DDEC", "v": -0.04})
+            )
+            await asyncio.sleep(0.15)
+
+        info = None
+        deadline = time.monotonic() + 2.0
+        while time.monotonic() < deadline:
+            for m in ui_msgs:
+                if m.get("msgtype") == "guideInfo":
+                    info = m
+                    break
+            if info is not None:
+                break
+            await asyncio.sleep(0.02)
+        assert info is not None, "UI should receive guideInfo"
+        data = info["data"]
+        assert data["ok"] is True
+        assert abs(float(data["dAsc"]) - 0.12) < 1e-9
+        assert data.get("jpeg") == jpeg
+        assert "tile" not in data
+        assert "imageData" not in data
+        blob = json.dumps(info)
+        assert "PIXELBLOB" not in blob
+
+        motor_ctl = [m for m in motor_msgs if m.get("msgtype") == "ctlparams"]
+        keys = {m.get("k") for m in motor_ctl}
+        assert "GUIDE_DASC" in keys
+        assert "GUIDE_DDEC" in keys
+        ui_ctl = [m for m in ui_msgs if m.get("msgtype") == "ctlparams"]
+        assert ui_ctl == []
+
+    for t in tasks:
+        t.cancel()
+    await asyncio.gather(*tasks, return_exceptions=True)
+
+
+async def test_guide_trace_dump(port: int):
+    """UI register asks guide for a dump; motor does not see GUIDE_TRACE_DUMP."""
+    motor_msgs = []
+    ui_msgs = []
+
+    async def collect(path, bucket):
+        async with websockets.connect(f"ws://127.0.0.1:{port}{path}") as ws:
+            while True:
+                bucket.append(json.loads(await ws.recv()))
+
+    motor_task = asyncio.create_task(collect("/motor", motor_msgs))
+    ui_task = asyncio.create_task(collect("/", ui_msgs))
+    await asyncio.sleep(0.05)
+
+    async with websockets.connect(f"ws://127.0.0.1:{port}/guide") as guide:
+        # Drain params seed if any, then wait for TRACE_DUMP (UI already registered).
+        dump_req = None
+        deadline = time.monotonic() + 2.0
+        while time.monotonic() < deadline:
+            raw = await asyncio.wait_for(guide.recv(), timeout=2.0)
+            msg = json.loads(raw)
+            if msg.get("msgtype") == "ctlparams" and msg.get("k") == "GUIDE_TRACE_DUMP":
+                dump_req = msg
+                break
+        assert dump_req is not None, "guide should receive GUIDE_TRACE_DUMP after UI connect"
+
+        await guide.send(
+            json.dumps(
+                {
+                    "msgtype": "guideTrace",
+                    "data": {
+                        "n": 2,
+                        "window_s": 1200,
+                        "t": [100.0, 100.2],
+                        "eAsc": [-1.5, 2.0],
+                        "dAsc": [0.1, -0.2],
+                        "ok": [True, True],
+                        "tile": "PIXELBLOB",
+                    },
+                }
+            )
+        )
+        trace = None
+        deadline = time.monotonic() + 2.0
+        while time.monotonic() < deadline:
+            for m in ui_msgs:
+                if m.get("msgtype") == "guideTrace":
+                    trace = m
+                    break
+            if trace is not None:
+                break
+            await asyncio.sleep(0.02)
+        assert trace is not None, "UI should receive guideTrace"
+        data = trace["data"]
+        assert data["n"] == 2
+        assert data["eAsc"] == [-1.5, 2.0]
+        assert "tile" not in data
+
+        await asyncio.sleep(0.05)
+        assert not any(
+            m.get("msgtype") == "ctlparams" and m.get("k") == "GUIDE_TRACE_DUMP"
+            for m in motor_msgs
+        )
+
+    motor_task.cancel()
+    ui_task.cancel()
+    await asyncio.gather(motor_task, ui_task, return_exceptions=True)
+
+
 async def run_all():
     logging.basicConfig(level=logging.WARNING)
     test_msgbuff_drop_flag()
@@ -494,6 +717,10 @@ async def run_all():
     print("reconnect ok")
     await with_hub(test_srcimage_seeds_current_params)
     print("seed currentParams ok")
+    await with_hub(test_guide_hub_fanout)
+    print("guide hub ok")
+    await with_hub(test_guide_trace_dump)
+    print("guide trace dump ok")
     print("ALL PASS")
 
 

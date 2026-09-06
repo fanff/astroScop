@@ -54,6 +54,19 @@ OUTPUT_FIELDS = frozenset(
         "locator_x",
         "locator_y",
         "locator_size",
+        "track_enabled",
+        "track_x",
+        "track_y",
+        "track_roi",
+        "track_theta_deg",
+        "track_flip_asc",
+        "track_flip_dec",
+        "guide_dec_deg",
+        "guide_focal_mm",
+        "guide_show_crop",
+        "guide_stack_n",
+        "guide_kp",
+        "guide_ki",
     }
 )
 
@@ -115,6 +128,20 @@ class CameraSettings(BaseModel):
     locator_x: float = Field(default=0.5, ge=0.0, le=1.0)
     locator_y: float = Field(default=0.5, ge=0.0, le=1.0)
     locator_size: float = Field(default=1.0, ge=0.15, le=3.0)
+    # Tracking lock: native RGB crop for the guide worker (not the composition glyph).
+    track_enabled: bool = False
+    track_x: float = Field(default=0.5, ge=0.0, le=1.0)
+    track_y: float = Field(default=0.5, ge=0.0, le=1.0)
+    track_roi: int = Field(default=32, ge=8, le=64)
+    track_theta_deg: float = 0.0
+    track_flip_asc: bool = False
+    track_flip_dec: bool = False
+    guide_dec_deg: float = Field(default=0.0, ge=-90.0, le=90.0)
+    guide_focal_mm: float = Field(default=18.0, ge=0.0, le=10000.0)
+    guide_show_crop: bool = False
+    guide_stack_n: int = Field(default=5, ge=1, le=15)
+    guide_kp: float = Field(default=0.25, ge=0.0, le=4.0)
+    guide_ki: float = Field(default=0.02, ge=0.0, le=0.5)
 
     def science_save_active(self) -> bool:
         """Runtime switch: arm Bayer persistence (not RGB/JPEG)."""
@@ -202,6 +229,19 @@ class CameraSettings(BaseModel):
             "locator_x": self.locator_x,
             "locator_y": self.locator_y,
             "locator_size": self.locator_size,
+            "track_enabled": self.track_enabled,
+            "track_x": self.track_x,
+            "track_y": self.track_y,
+            "track_roi": self.track_roi,
+            "track_theta_deg": self.track_theta_deg,
+            "track_flip_asc": self.track_flip_asc,
+            "track_flip_dec": self.track_flip_dec,
+            "guide_dec_deg": self.guide_dec_deg,
+            "guide_focal_mm": self.guide_focal_mm,
+            "guide_show_crop": self.guide_show_crop,
+            "guide_stack_n": self.guide_stack_n,
+            "guide_kp": self.guide_kp,
+            "guide_ki": self.guide_ki,
         }
 
 
@@ -342,6 +382,32 @@ def from_legacy_dict(
         kwargs["locator_y"] = float(raw["locator_y"])
     if "locator_size" in raw:
         kwargs["locator_size"] = float(raw["locator_size"])
+    if "track_enabled" in raw:
+        kwargs["track_enabled"] = bool(raw["track_enabled"])
+    if "track_x" in raw:
+        kwargs["track_x"] = float(raw["track_x"])
+    if "track_y" in raw:
+        kwargs["track_y"] = float(raw["track_y"])
+    if "track_roi" in raw:
+        kwargs["track_roi"] = int(raw["track_roi"])
+    if "track_theta_deg" in raw:
+        kwargs["track_theta_deg"] = float(raw["track_theta_deg"])
+    if "track_flip_asc" in raw:
+        kwargs["track_flip_asc"] = bool(raw["track_flip_asc"])
+    if "track_flip_dec" in raw:
+        kwargs["track_flip_dec"] = bool(raw["track_flip_dec"])
+    if "guide_dec_deg" in raw:
+        kwargs["guide_dec_deg"] = float(raw["guide_dec_deg"])
+    if "guide_focal_mm" in raw:
+        kwargs["guide_focal_mm"] = float(raw["guide_focal_mm"])
+    if "guide_show_crop" in raw:
+        kwargs["guide_show_crop"] = bool(raw["guide_show_crop"])
+    if "guide_stack_n" in raw:
+        kwargs["guide_stack_n"] = int(raw["guide_stack_n"])
+    if "guide_kp" in raw:
+        kwargs["guide_kp"] = float(raw["guide_kp"])
+    if "guide_ki" in raw:
+        kwargs["guide_ki"] = float(raw["guide_ki"])
 
     return CameraSettings(**kwargs)
 

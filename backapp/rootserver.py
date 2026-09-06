@@ -1,8 +1,9 @@
 """
-WebSocket hub: UI ↔ rootserver ↔ camera / motor.
+WebSocket hub: UI ↔ rootserver ↔ camera / motor / guide.
 
 Camera params are validated with CameraSettings before forward.
 Preview frames are passthrough (no JPEG decode/overlay on the event loop).
+Guide tiles stay on shm; only sanitized guideInfo/guideSample reach the UI.
 """
 
 from __future__ import annotations
@@ -23,6 +24,9 @@ from ws_messages import (
     parse_cam_timing,
     parse_srcimage,
     try_normalize_params,
+    CTL_GUIDE_DISABLE,
+    CTL_GUIDE_ENABLE,
+    CTL_GUIDE_TRACE_DUMP,
 )
 
 DEBUGMODE = 0
@@ -33,7 +37,11 @@ currentParams = None  # canonical CameraSettings.to_wire_dict() or None
 
 WSCAMERA = None
 WSMOTOR = None
+WSGUIDE = None
 USERS = set()
+
+# Pixel tiles never reach wasp. Crop JPEG (base64 string) may, when show-crop is on.
+GUIDE_BLOB_KEYS = frozenset({"imageData", "tile", "rgb", "image"})
 
 latestgyroData = None
 
@@ -49,12 +57,13 @@ DISKLIST = ["/", "/dev/shm"]
 def reset_hub_state():
     """Clear module globals (tests)."""
     global currentImage, currentUsedParams, currentParams
-    global WSCAMERA, WSMOTOR, latestgyroData, overWhelmed
+    global WSCAMERA, WSMOTOR, WSGUIDE, latestgyroData, overWhelmed
     currentImage = None
     currentUsedParams = None
     currentParams = None
     WSCAMERA = None
     WSMOTOR = None
+    WSGUIDE = None
     latestgyroData = None
     overWhelmed = False
     USERS.clear()
@@ -89,10 +98,54 @@ async def overwhelmedEnd():
 
 async def register(websocket):
     USERS.add(websocket)
+    await request_guide_trace_dump()
 
 
 async def unregister(websocket):
     USERS.discard(websocket)
+
+
+async def request_guide_trace_dump() -> None:
+    """Ask the guide worker for the rolling 20 min ring (UI reconnect / new user)."""
+    if WSGUIDE is None:
+        return
+    try:
+        await WSGUIDE.send(
+            json.dumps({"msgtype": "ctlparams", "k": CTL_GUIDE_TRACE_DUMP, "v": 1})
+        )
+    except Exception:
+        logging.getLogger("handler").warning("could not request guideTrace dump")
+
+
+def sanitize_guide_payload(data) -> dict:
+    """Drop pixel tiles; keep a string crop JPEG for the work-crop inset."""
+    if not isinstance(data, dict):
+        return {}
+    out = {k: v for k, v in data.items() if k not in GUIDE_BLOB_KEYS}
+    jpeg = out.get("jpeg")
+    if jpeg is not None and not isinstance(jpeg, str):
+        out.pop("jpeg", None)
+    return out
+
+
+def _guide_bcast_payload(msg: dict) -> dict:
+    payload = msg.get("data")
+    if isinstance(payload, dict):
+        return sanitize_guide_payload(payload)
+    return sanitize_guide_payload(
+        {k: v for k, v in msg.items() if k != "msgtype"}
+    )
+
+
+async def _send_params_to_workers(wire: str, log) -> None:
+    for name, ws in (("camera", WSCAMERA), ("guide", WSGUIDE)):
+        if ws is None:
+            log.info("setting new params but no %s detected", name)
+            continue
+        try:
+            await ws.send(wire)
+        except Exception:
+            log.warning("could not send params to %s", name)
 
 
 async def bcastMsg(data, msgtype):
@@ -139,6 +192,7 @@ async def handler(websocket, path=None):
     global currentParams
     global WSCAMERA
     global WSMOTOR
+    global WSGUIDE
     global latestgyroData
     log = logging.getLogger("handler")
     # websockets>=13: path is on websocket.request; older APIs passed path as arg
@@ -153,6 +207,13 @@ async def handler(websocket, path=None):
     elif "motor" in path:
         log.info("setting motor connection")
         WSMOTOR = websocket
+    elif "guide" in path:
+        log.info("setting guide connection")
+        WSGUIDE = websocket
+        if currentParams:
+            await WSGUIDE.send(params_to_wire_from_dict(currentParams))
+        if USERS:
+            await request_guide_trace_dump()
     elif "stats" in path:
         log.info("pushing stats")
         try:
@@ -181,21 +242,24 @@ async def handler(websocket, path=None):
                         continue
                     currentParams = settings.to_wire_dict()
                     wire = params_to_wire_from_dict(currentParams)
-                    if WSCAMERA:
-                        log.info("sending validated params to camera")
-                        try:
-                            await WSCAMERA.send(wire)
-                        except Exception:
-                            log.warning("could not send data to WS CAMERA")
-                    else:
-                        log.info("setting new params but no camera detected")
+                    log.info("sending validated params to camera and guide")
+                    await _send_params_to_workers(wire, log)
 
                 elif msgtype == "ctlparams":
                     log.info("ctlParams %s", msg)
-                    if WSMOTOR is not None:
-                        await WSMOTOR.send(rawData)
+                    key = msg.get("k")
+                    if key == CTL_GUIDE_TRACE_DUMP:
+                        await request_guide_trace_dump()
                     else:
-                        log.info("setting new params but no motor detected")
+                        if WSMOTOR is not None:
+                            await WSMOTOR.send(rawData)
+                        else:
+                            log.info("setting new params but no motor detected")
+                        if key in (CTL_GUIDE_ENABLE, CTL_GUIDE_DISABLE) and WSGUIDE is not None:
+                            try:
+                                await WSGUIDE.send(rawData)
+                            except Exception:
+                                log.warning("could not send %s to guide", key)
 
                 elif msgtype == "srcimage":
                     try:
@@ -232,6 +296,9 @@ async def handler(websocket, path=None):
                     CAMSTATS.stack(payload)
                     await bcastMsg(payload, "camTiming")
 
+                elif msgtype in ("guideInfo", "guideSample", "guideTrace"):
+                    await bcastMsg(_guide_bcast_payload(msg), msgtype)
+
                 elif msgtype in ["gyrodata"]:
                     log.info("got gyro data %s", msg)
                     latestgyroData = msg
@@ -255,6 +322,9 @@ async def handler(websocket, path=None):
         elif "motor" in path:
             log.warning("motor connection close")
             WSMOTOR = None
+        elif "guide" in path:
+            log.warning("guide connection close")
+            WSGUIDE = None
         elif "stats" not in path:
             await unregister(websocket)
 
@@ -304,9 +374,12 @@ async def bgjob(diskList):
 def serviceStatus():
     global WSMOTOR
     global WSCAMERA
+    global WSGUIDE
     global USERS
     status = {}
-    for subserv, ws in zip(["WSMOTOR", "WSCAMERA"], [WSMOTOR, WSCAMERA]):
+    for subserv, ws in zip(
+        ["WSMOTOR", "WSCAMERA", "WSGUIDE"], [WSMOTOR, WSCAMERA, WSGUIDE]
+    ):
         status[subserv] = ["OK" if (ws is not None) else "NOT CONNECTED", 0]
     status["WEBUSERS"] = ["OK", len(USERS)]
     status["OVERWHELM"] = ["OK", str(overWhelmed)]
