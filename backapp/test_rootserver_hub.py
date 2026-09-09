@@ -242,8 +242,8 @@ async def test_params_canonical_and_legacy(port: int):
         assert last["data"]["guide_focal_mm"] == 18.0
         assert last["data"]["guide_show_crop"] is False
         assert last["data"]["guide_stack_n"] == 5
-        assert abs(float(last["data"]["guide_kp"]) - 0.25) < 1e-9
-        assert abs(float(last["data"]["guide_ki"]) - 0.02) < 1e-9
+        assert abs(float(last["data"]["guide_kp"]) - 0.80) < 1e-9
+        assert abs(float(last["data"]["guide_ki"]) - 0.008) < 1e-9
 
         # Invalid — not forwarded
         n = len(cam_msgs)

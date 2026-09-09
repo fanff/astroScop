@@ -30,7 +30,7 @@ def test_i_eats_constant_bias():
 def test_modest_pixel_error_does_not_saturate():
     ax = AxisPI()
     out = ax.update(6.5, 0.2)
-    assert abs(out) < 3.0
+    assert abs(out - KP * 6.5) < 0.1
     assert abs(out) < TRIM_ASC_MAX - 1.0
 
 

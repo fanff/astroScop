@@ -150,7 +150,7 @@ def test_apply_config_rebuilds_stack():
 
 
 def test_apply_config_sets_gains_without_resetting_i():
-    eng = GuideEngine(GuideConfig(kp=0.25, ki=0.02))
+    eng = GuideEngine(GuideConfig(kp=0.80, ki=0.008))
     eng.pid.asc.i = 1.5
     eng.pid.dec.last_out = 0.4
     eng.apply_config(GuideConfig(kp=0.08, ki=0.005, stack_n=5))

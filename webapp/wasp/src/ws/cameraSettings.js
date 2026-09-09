@@ -241,8 +241,8 @@ export function defaultCameraSettings() {
     guide_focal_mm: 18,
     guide_show_crop: false,
     guide_stack_n: 5,
-    guide_kp: 0.25,
-    guide_ki: 0.02,
+    guide_kp: 0.80,
+    guide_ki: 0.008,
   }
 }
 
@@ -396,10 +396,10 @@ export function clampGuideStackN(v) {
 
 export const GUIDE_KP_MIN = 0
 export const GUIDE_KP_MAX = 4
-export const GUIDE_KP_DEFAULT = 0.25
+export const GUIDE_KP_DEFAULT = 0.80
 export const GUIDE_KI_MIN = 0
 export const GUIDE_KI_MAX = 0.5
-export const GUIDE_KI_DEFAULT = 0.02
+export const GUIDE_KI_DEFAULT = 0.008
 
 export function clampGuideKp(v) {
   const n = Number(v)

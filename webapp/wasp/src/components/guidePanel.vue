@@ -134,7 +134,7 @@
         @input="setField('guide_ki', Number($event.target.value))"
       />
     </div>
-    <p class="hint">If error hunts ±, drop Kp first, then Ki. Live — does not reset I.</p>
+    <p class="hint">If error hunts slowly, drop Ki (or raise Kp). Live — does not reset I.</p>
 
     <div class="axes">
       <button type="button" class="nudge-btn" :disabled="lockOff" @click="rotate90">

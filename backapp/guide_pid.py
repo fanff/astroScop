@@ -10,9 +10,11 @@ from dataclasses import dataclass
 
 from guide_mixer import TRIM_ASC_MAX, TRIM_DEC_MAX, clamp
 
-# STEP/s per axis pixel. Sized so ~6 px → ~1.5 STEP/s P, not 90.
-KP = 0.25
-KI = 0.02
+# STEP/s per axis pixel. Sky traces at 0.25 / 0.02 hunted (ζ≈0.15, I-dominated).
+# Plant G≈0.028 px/s per STEP/s at 18 mm bin2 → this pair is ζ≈0.75, Tn≈7 min.
+# ~6 px → ~4.8 STEP/s P, still under the ±8 mixer rail.
+KP = 0.80
+KI = 0.008
 KP_MIN, KP_MAX = 0.0, 4.0
 KI_MIN, KI_MAX = 0.0, 0.5
 KD = 0.0

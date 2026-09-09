@@ -161,8 +161,8 @@ Preferred `params.data` shape. Extra keys are **ignored** (`extra="ignore"`). Ty
 | `guide_focal_mm` | float ≥ 0 | `18` | **output** | OTA focal length; `≤ 0` refuses the guide loop |
 | `guide_show_crop` | bool | `false` | **output** | Guide worker encodes a small tile JPEG; hub forwards `guideInfo.data.jpeg` (still strips `tile`) |
 | `guide_stack_n` | int 1…15 | `5` | **output** | Median-stack length in the guide worker before isolate |
-| `guide_kp` | float 0…4 | `0.25` | **output** | PI proportional gain (STEP/s per axis pixel); live, does not reset I |
-| `guide_ki` | float 0…0.5 | `0.02` | **output** | PI integral gain (STEP/s per axis pixel per s); live, does not reset I |
+| `guide_kp` | float 0…4 | `0.80` | **output** | PI proportional gain (STEP/s per axis pixel); live, does not reset I |
+| `guide_ki` | float 0…0.5 | `0.008` | **output** | PI integral gain (STEP/s per axis pixel per s); live, does not reset I |
 
 ### Apply classes (what rootserver/UI should expect latency-wise)
 
@@ -208,8 +208,8 @@ Classification is implemented by `diff_settings()` in [`cam_settings.py`](../cam
     "guide_focal_mm": 18,
     "guide_show_crop": false,
     "guide_stack_n": 5,
-    "guide_kp": 0.25,
-    "guide_ki": 0.02
+    "guide_kp": 0.80,
+    "guide_ki": 0.008
   }
 }
 ```

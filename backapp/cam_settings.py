@@ -140,8 +140,8 @@ class CameraSettings(BaseModel):
     guide_focal_mm: float = Field(default=18.0, ge=0.0, le=10000.0)
     guide_show_crop: bool = False
     guide_stack_n: int = Field(default=5, ge=1, le=15)
-    guide_kp: float = Field(default=0.25, ge=0.0, le=4.0)
-    guide_ki: float = Field(default=0.02, ge=0.0, le=0.5)
+    guide_kp: float = Field(default=0.80, ge=0.0, le=4.0)
+    guide_ki: float = Field(default=0.008, ge=0.0, le=0.5)
 
     def science_save_active(self) -> bool:
         """Runtime switch: arm Bayer persistence (not RGB/JPEG)."""
